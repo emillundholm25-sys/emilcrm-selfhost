@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "emilcrm": {
+      "type": "http",
+      "url": "https://YOUR-EMILCRM.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${EMILCRM_INGEST_TOKEN}"
+      }
+    }
+  }
+}

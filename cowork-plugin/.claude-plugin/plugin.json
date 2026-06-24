@@ -1,0 +1,10 @@
+{
+  "name": "emilcrm-prospecting",
+  "version": "0.2.2",
+  "description": "Define a campaign's ICP and let Claude run the whole prospecting loop — search and enrich with Apollo, then write scored prospects and first-touch next actions into EmilCRM.",
+  "author": {
+    "name": "Emil Lundholm"
+  },
+  "keywords": ["crm", "prospecting", "apollo", "sales", "lead-generation"],
+  "mcpServers": "./.mcp.json"
+}
