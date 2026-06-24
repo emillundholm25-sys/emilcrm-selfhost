@@ -1,7 +1,7 @@
 {
   "name": "emilcrm-prospecting",
-  "version": "0.2.2",
-  "description": "Define a campaign's ICP and let Claude run the whole prospecting loop — search and enrich with Apollo, then write scored prospects and first-touch next actions into EmilCRM.",
+  "version": "0.3.0",
+  "description": "Define a campaign's ICP and let Claude run the whole prospecting loop — search and enrich with Apollo, write scored prospects and contacts into EmilCRM, then draft personalised intros from the campaign template (and save them as Gmail drafts).",
   "author": {
     "name": "Emil Lundholm"
   },

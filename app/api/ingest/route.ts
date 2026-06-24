@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbConfigured, readState, writeState } from "@/lib/db";
-import { IngestBody, applyIngest, buildDigest, parseDoc } from "@/lib/ingest";
+import { DraftBody, IngestBody, applyDrafts, applyIngest, buildDigest, parseDoc } from "@/lib/ingest";
 
 // Machine-facing ingest API for the Cowork prospecting plugin. Authenticated
 // with a dedicated bearer token (INGEST_TOKEN) — separate from the human
@@ -51,23 +51,25 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const denied = gate(req);
   if (denied) return denied;
-  let body: IngestBody;
+  let body: IngestBody & { draft?: DraftBody };
   try {
-    body = (await req.json()) as IngestBody;
+    body = (await req.json()) as IngestBody & { draft?: DraftBody };
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON body" }, { status: 400 });
   }
-  if (!Array.isArray(body.people) && !Array.isArray(body.nextActions)) {
+  if (!Array.isArray(body.people) && !Array.isArray(body.nextActions) && !body.draft) {
     return NextResponse.json(
-      { ok: false, error: "Provide `people` (array) and/or `nextActions` (array)." },
+      { ok: false, error: "Provide `people` (array), `nextActions` (array), and/or `draft`." },
       { status: 400 }
     );
   }
   try {
     const doc = parseDoc(await readState());
-    const report = applyIngest(doc, body);
+    const report =
+      Array.isArray(body.people) || Array.isArray(body.nextActions) ? applyIngest(doc, body) : undefined;
+    const draftReport = body.draft ? applyDrafts(doc, body.draft) : undefined;
     await writeState(JSON.stringify(doc));
-    return NextResponse.json({ ok: true, report });
+    return NextResponse.json({ ok: true, ...(report ? { report } : {}), ...(draftReport ? { draftReport } : {}) });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }

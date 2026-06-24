@@ -1,6 +1,6 @@
 ---
 name: prospect
-description: Runs the full outbound prospecting loop for EmilCRM. Use when the user says "find prospects", "find leads", "prospect for [campaign name]", "fill my pipeline", "who should I reach out to", "source contacts for my ICP", or otherwise wants new people sourced into their CRM. Reads a campaign's ICP, searches and enriches with the Apollo connector, then writes scored prospects (or pipeline contacts with first-touch next actions) into EmilCRM via its connector. Requires the EmilCRM connector and an Apollo connector.
+description: Runs the full outbound prospecting loop for EmilCRM. Use when the user says "find prospects", "find leads", "prospect for [campaign name]", "fill my pipeline", "who should I reach out to", "source contacts for my ICP", or otherwise wants new people sourced into their CRM. Reads a campaign's ICP, searches and enriches with the Apollo connector, writes scored prospects (or pipeline contacts with first-touch next actions) into EmilCRM via its connector, and can draft personalised intros from the campaign template (saving them as Gmail drafts for the user to send). Requires the EmilCRM connector and an Apollo connector.
 ---
 
 # Prospect for EmilCRM
@@ -49,13 +49,21 @@ Pass the **raw Apollo person objects** straight through — the CRM parses names
 
 Always pass the `campaignId` you selected in step 1.
 
-### 7. Report
+### 7. Draft intros (when you added contacts)
 
-Summarise: how many were added (and as prospects vs contacts), how many were skipped as duplicates, and the standout matches by ICP fit. Point the user to the right view — the **Prospects** page (to review/promote) or the **Action Stream** (if you added contacts). Offer the next batch.
+If you added people as **contacts** and the user wants first-touch outreach prepared, call `emilcrm_draft_intro` with the `contactIds` that `emilcrm_add_contacts` returned. It fills the campaign's email template — merge fields like `{{firstName}}`, `{{company}}`, `{{title}}` are substituted per contact — saves a personalised draft on each (visible in the app's **Intro email** panel for the user to review and send), and returns the rendered subject + body.
+
+- The template comes from the campaign (`emailTemplate` in `emilcrm_get_overview`); when a campaign has none, a sensible default is used. If the user wants a specific angle, have them set the template on the campaign first.
+- **Gmail (optional):** if a Gmail connector is connected, save each returned draft as a **Gmail draft** (create draft only — never send). The user reviews and sends from Gmail. With no Gmail connector, the draft still lives in EmilCRM to copy/send.
+- **Calendar (optional):** if a Google Calendar connector is connected and the user wants to offer times, propose a few open slots to weave into the draft or a follow-up — but **booking stays the user's call**; you can also `emilcrm_set_next_action` to queue "Propose 2–3 times".
+
+### 8. Report
+
+Summarise: how many were added (and as prospects vs contacts), how many were skipped as duplicates, how many intros were drafted (and whether Gmail drafts were saved), and the standout matches by ICP fit. Point the user to the right view — the **Prospects** page (to review/promote) or the **Action Stream** / a contact's **Intro email** panel (if you added contacts and drafted). Offer the next batch.
 
 ## Guardrails
 
-- **Never send outreach.** This skill sources and queues; it does not email, message, or connect on anyone's behalf. Drafting a *next action* is fine; sending is the user's job (or a separate, explicitly-authorised step).
+- **Never send outreach.** This skill sources, drafts, and queues — it does not email, message, or connect on anyone's behalf. Saving a *draft* (in EmilCRM or as a Gmail draft) and setting a *next action* are fine; actually sending, or booking a meeting, is the user's job (or a separate, explicitly-authorised step).
 - **Respect Apollo credits and terms.** Reveal only what you need; confirm before large batches. The user's own Apollo account and its terms govern usage.
 - **Don't fabricate people or data.** Only write what Apollo actually returned. If a field is missing, leave it blank — the CRM shows directory-lookup links to fill gaps later.
 - **One campaign at a time** unless the user explicitly asks to prospect across several.

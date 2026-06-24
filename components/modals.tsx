@@ -6,6 +6,7 @@ import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { MeetingType, STAGES, STAGE_META, Stage, fullName } from "@/lib/types";
 import { parseEnrichment, parseLinkedInUrl } from "@/lib/apollo-parse";
+import { DEFAULT_EMAIL_TEMPLATE, MERGE_FIELDS } from "@/lib/templates";
 import { BackupData, downloadBackup, parseBackup, restoreBackup } from "@/lib/backup";
 import { CAMPAIGN_COLORS, campaignColorClasses, cn, dateOffset, dedupePhones, todayISODate } from "@/lib/utils";
 import { Button, Field, inputClass } from "./ui";
@@ -194,6 +195,8 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
   const [sizes, setSizes] = useState((existing?.targetICP?.companySizes ?? []).join(", "));
   const [locations, setLocations] = useState((existing?.targetICP?.locations ?? []).join(", "));
   const [titles, setTitles] = useState((existing?.targetICP?.titles ?? []).join(", "));
+  const [emailSubject, setEmailSubject] = useState(existing?.emailTemplate?.subject ?? "");
+  const [emailBody, setEmailBody] = useState(existing?.emailTemplate?.body ?? "");
   const [bulk, setBulk] = useState("");
 
   const submit = () => {
@@ -205,6 +208,10 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
       titles: splitList(titles),
     };
     const hasICP = targetICP.industries.length || targetICP.companySizes.length || targetICP.locations.length || targetICP.titles.length;
+    const emailTemplate =
+      emailSubject.trim() || emailBody.trim()
+        ? { subject: emailSubject.trim(), body: emailBody.trim() }
+        : undefined;
 
     if (isEdit && existing) {
       updateCampaign(existing.id, {
@@ -212,6 +219,7 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
         description: description.trim() || undefined,
         color,
         targetICP: hasICP ? targetICP : undefined,
+        emailTemplate,
       });
       toast("Campaign updated");
       close();
@@ -223,6 +231,7 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
       description,
       color,
       targetICP: hasICP ? targetICP : undefined,
+      emailTemplate,
     });
 
     // Optional: bulk-import prospects into this campaign (one per line:
@@ -303,6 +312,53 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
           </Field>
         </div>
         <p className="mt-1.5 text-xs text-zinc-400">Comma-separated. Drives prospect scoring for this campaign.</p>
+      </div>
+
+      <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            Intro email template (optional)
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setEmailSubject(DEFAULT_EMAIL_TEMPLATE.subject);
+              setEmailBody(DEFAULT_EMAIL_TEMPLATE.body);
+            }}
+            className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Use sample
+          </button>
+        </div>
+        <Field label="Subject">
+          <input
+            className={inputClass}
+            value={emailSubject}
+            onChange={(e) => setEmailSubject(e.target.value)}
+            placeholder={DEFAULT_EMAIL_TEMPLATE.subject}
+          />
+        </Field>
+        <Field label="Body" className="mt-3">
+          <textarea
+            rows={7}
+            value={emailBody}
+            onChange={(e) => setEmailBody(e.target.value)}
+            placeholder={DEFAULT_EMAIL_TEMPLATE.body}
+            className={cn(inputClass, "h-auto resize-none py-2 leading-relaxed")}
+          />
+        </Field>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-zinc-400">Merge fields:</span>
+          {MERGE_FIELDS.map((f) => (
+            <code key={f} className="rounded bg-white px-1.5 py-0.5 text-[11px] text-zinc-600 ring-1 ring-zinc-200">
+              {`{{${f}}}`}
+            </code>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-zinc-400">
+          Each contact gets a personalised draft from this — edit and send it from their page.
+        </p>
       </div>
 
       {!isEdit && (

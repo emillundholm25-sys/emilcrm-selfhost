@@ -46,6 +46,10 @@ Connect an **Apollo** connector (people/organization search + enrich). In Cowork
 
 > Bring your **own** Apollo account. Searches and reveals draw on your Apollo plan and are governed by your Apollo terms — this is also what keeps the model clean if you resell the CRM: each user runs their own Apollo.
 
+### 4. Connect Gmail + Calendar (optional)
+
+For the last mile of the loop, connect a **Gmail** and/or **Google Calendar** connector in Cowork. With them, after sourcing the skill can draft a personalised intro per contact (from the campaign's template), save each as a **Gmail draft** for you to review and send, and propose open meeting slots. Without them, intros are still drafted into EmilCRM (visible in each contact's **Intro email** panel) for you to copy and send. Sending and booking always stay your call.
+
 ## Usage
 
 > "Find 25 prospects for the Skåne Hospitality campaign."
@@ -60,7 +64,7 @@ Claude confirms the ICP, runs the search, writes the results, and tells you how 
 - It only writes what Apollo actually returned; missing fields stay blank.
 - It confirms before large credit-spending reveals.
 
-## Limitations (v0.1)
+## Limitations
 
 - Writes merge into EmilCRM's single-document store via read-modify-write. Fine for one user; if the web app is being edited heavily at the same instant, a write could race. Run prospecting when you're not mid-edit.
 - Industry filtering falls back to keywords when Apollo industry tag ids can't be resolved.

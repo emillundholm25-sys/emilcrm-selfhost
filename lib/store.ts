@@ -10,6 +10,7 @@ import {
   Campaign,
   CampaignICP,
   Contact,
+  EmailTemplate,
   Meeting,
   MeetingStatus,
   MeetingType,
@@ -18,7 +19,8 @@ import {
   STAGE_META,
   fullName,
 } from "./types";
-import { CAMPAIGN_COLORS, dedupePhones, pickAvatarColor, todayISODate, uid } from "./utils";
+import { DEFAULT_EMAIL_TEMPLATE, renderEmailDraft } from "./templates";
+import { CAMPAIGN_COLORS, dateOffset, dedupePhones, pickAvatarColor, todayISODate, uid } from "./utils";
 
 export interface NewContactInput {
   firstName: string;
@@ -72,6 +74,7 @@ export interface NewCampaignInput {
   description?: string;
   color?: string;
   targetICP?: CampaignICP;
+  emailTemplate?: EmailTemplate;
 }
 
 interface CRMState {
@@ -111,6 +114,12 @@ interface CRMState {
   // next action (the Action Stream)
   setNextAction: (id: string, action: string, date?: string) => void;
   completeNextAction: (id: string) => void;
+
+  // intro email drafts (from the campaign template)
+  generateDraft: (id: string) => boolean;
+  updateDraft: (id: string, patch: { subject?: string; body?: string }) => void;
+  markDraftSent: (id: string) => void;
+  discardDraft: (id: string) => void;
 
   // meetings
   bookMeeting: (input: BookMeetingInput) => string;
@@ -185,6 +194,7 @@ export const useCRM = create<CRMState>()(
           description: input.description?.trim() || undefined,
           color: input.color || CAMPAIGN_COLORS[used % CAMPAIGN_COLORS.length],
           targetICP: input.targetICP,
+          emailTemplate: input.emailTemplate,
           status: "active",
           createdAt: new Date().toISOString(),
         };
@@ -408,6 +418,55 @@ export const useCRM = create<CRMState>()(
         }));
         get().logActivity(id, "action_done", `Completed: ${done}`);
       },
+
+      // Render the contact's campaign template into a personalised draft.
+      generateDraft: (id) => {
+        const c = get().contacts.find((x) => x.id === id);
+        if (!c) return false;
+        const campaign = get().campaigns.find((cm) => cm.id === c.campaignId);
+        const template = campaign?.emailTemplate ?? DEFAULT_EMAIL_TEMPLATE;
+        const { subject, body } = renderEmailDraft(template, c, campaign);
+        set((s) => ({
+          contacts: s.contacts.map((x) =>
+            x.id === id
+              ? { ...x, emailDraft: { subject, body, status: "draft", updatedAt: new Date().toISOString() } }
+              : x
+          ),
+        }));
+        return true;
+      },
+
+      updateDraft: (id, patch) =>
+        set((s) => ({
+          contacts: s.contacts.map((x) =>
+            x.id === id && x.emailDraft
+              ? { ...x, emailDraft: { ...x.emailDraft, ...patch, status: "draft", updatedAt: new Date().toISOString() } }
+              : x
+          ),
+        })),
+
+      // Mark the intro as sent, advance the contact, and queue the follow-up —
+      // the Action Stream loop: every send leaves a next move on the board.
+      markDraftSent: (id) => {
+        const c = get().contacts.find((x) => x.id === id);
+        if (!c?.emailDraft) return;
+        const subject = c.emailDraft.subject.trim();
+        set((s) => ({
+          contacts: s.contacts.map((x) =>
+            x.id === id && x.emailDraft
+              ? { ...x, emailDraft: { ...x.emailDraft, status: "sent", updatedAt: new Date().toISOString() } }
+              : x
+          ),
+        }));
+        get().logActivity(id, "email", `Sent intro: ${subject || "(no subject)"}`);
+        if (c.stage === "to_contact") get().setStage(id, "contacted");
+        get().setNextAction(id, "Follow up if no reply", dateOffset(3));
+      },
+
+      discardDraft: (id) =>
+        set((s) => ({
+          contacts: s.contacts.map((x) => (x.id === id ? { ...x, emailDraft: undefined } : x)),
+        })),
 
       bookMeeting: (input) => {
         const id = uid();

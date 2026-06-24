@@ -11,18 +11,21 @@ import {
   CalendarX,
   Check,
   CheckCircle2,
+  Copy,
   ExternalLink,
   Flag,
   Mail,
   Pencil,
   Phone,
+  RefreshCw,
+  Send,
   StickyNote,
   Trash2,
   UserPlus,
 } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
-import { Activity, ActivityType, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
+import { Activity, ActivityType, Contact, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
 import { cn, dueLabel, formatActivityTime, formatCurrency, telHref } from "@/lib/utils";
 import { companyLookups, personLookups } from "@/lib/lookup";
 import { Avatar, Button, DueBadge, Tag, inputClass } from "@/components/ui";
@@ -212,6 +215,9 @@ export default function ContactDetailPage() {
             )}
           </section>
 
+          {/* Intro email */}
+          <IntroEmailCard contact={contact} />
+
           {/* Meetings */}
           <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5">
@@ -300,6 +306,142 @@ export default function ContactDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function IntroEmailCard({ contact }: { contact: Contact }) {
+  const campaigns = useCRM((s) => s.campaigns);
+  const generateDraft = useCRM((s) => s.generateDraft);
+  const updateDraft = useCRM((s) => s.updateDraft);
+  const markDraftSent = useCRM((s) => s.markDraftSent);
+  const discardDraft = useCRM((s) => s.discardDraft);
+  const toast = useUI((s) => s.toast);
+
+  const draft = contact.emailDraft;
+  const campaign = campaigns.find((c) => c.id === contact.campaignId);
+  const usingDefault = !campaign?.emailTemplate;
+
+  const copy = async () => {
+    if (!draft) return;
+    try {
+      await navigator.clipboard.writeText(`Subject: ${draft.subject}\n\n${draft.body}`);
+      toast("Draft copied to clipboard");
+    } catch {
+      toast("Couldn't copy — select and copy manually");
+    }
+  };
+
+  // Empty state — offer to draft from the campaign template.
+  if (!draft) {
+    return (
+      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Intro email</h2>
+        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center">
+          <Mail className="h-5 w-5 text-zinc-300" />
+          <p className="text-sm text-zinc-500">
+            Draft a personalised intro from{" "}
+            <span className="font-medium text-zinc-700">{campaign?.name ?? "your"}</span>
+            {usingDefault ? " (default template)" : "'s template"}.
+          </p>
+          <Button size="sm" onClick={() => generateDraft(contact.id)}>
+            <Mail className="h-4 w-4" />
+            Draft intro
+          </Button>
+          {!contact.email && (
+            <p className="text-xs text-amber-600">No email on file yet — draft now, add the address before sending.</p>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  const sent = draft.status === "sent";
+
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          Intro email
+          {sent ? (
+            <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
+              Sent · {formatActivityTime(draft.updatedAt)}
+            </span>
+          ) : (
+            <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">Draft</span>
+          )}
+        </h2>
+        <span className="truncate text-[11px] text-zinc-400">
+          from {campaign?.name ?? "default"}
+          {usingDefault ? " (default)" : ""} template
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="w-14 shrink-0 text-xs text-zinc-400">To</span>
+          {contact.email ? (
+            <span className="truncate font-medium text-zinc-700">{contact.email}</span>
+          ) : (
+            <span className="text-xs text-amber-600">No email yet — add one to send.</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-14 shrink-0 text-xs text-zinc-400">Subject</span>
+          <input
+            value={draft.subject}
+            disabled={sent}
+            onChange={(e) => updateDraft(contact.id, { subject: e.target.value })}
+            className={cn(inputClass, "flex-1", sent && "bg-zinc-50 text-zinc-500")}
+          />
+        </div>
+        <textarea
+          rows={8}
+          value={draft.body}
+          disabled={sent}
+          onChange={(e) => updateDraft(contact.id, { body: e.target.value })}
+          className={cn(inputClass, "h-auto resize-none py-2 leading-relaxed", sent && "bg-zinc-50 text-zinc-500")}
+        />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <Button variant="secondary" size="sm" onClick={copy}>
+            <Copy className="h-3.5 w-3.5 text-zinc-400" />
+            Copy
+          </Button>
+          {!sent && (
+            <button
+              onClick={() => {
+                if (confirm("Replace this draft with a fresh one from the template? Your edits will be lost.")) {
+                  generateDraft(contact.id);
+                  toast("Draft regenerated");
+                }
+              }}
+              title="Regenerate from template"
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Regenerate
+            </button>
+          )}
+          <button
+            onClick={() => {
+              discardDraft(contact.id);
+              toast(sent ? "Draft cleared" : "Draft discarded");
+            }}
+            className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+          >
+            {sent ? "Clear" : "Discard"}
+          </button>
+        </div>
+        {!sent && (
+          <Button size="sm" onClick={() => { markDraftSent(contact.id); toast("Intro sent — follow-up queued in 3 days"); }}>
+            <Send className="h-3.5 w-3.5" />
+            Mark as sent
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }
 

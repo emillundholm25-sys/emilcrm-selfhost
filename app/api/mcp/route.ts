@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbConfigured, readState, writeState } from "@/lib/db";
-import { IngestBody, applyIngest, buildDigest, parseDoc } from "@/lib/ingest";
+import { DraftBody, IngestBody, applyDrafts, applyIngest, buildDigest, parseDoc } from "@/lib/ingest";
 
 // Remote MCP endpoint for the Cowork "emilcrm-prospecting" plugin.
 //
@@ -87,6 +87,26 @@ const TOOLS = [
     },
   },
   {
+    name: "emilcrm_draft_intro",
+    description:
+      "Write a personalised intro email for one or more contacts from their campaign's template (merge fields like {{firstName}} / {{company}} / {{title}} are filled in automatically) and save it as a draft on each — it shows up in the app's 'Intro email' panel for the user to review and send. Returns the rendered subject + body for each contact so you can ALSO save them as Gmail drafts via the Gmail connector (never auto-send — sending stays the user's call). Pass the contactIds that emilcrm_add_contacts returned; omit them to draft for every contact in a campaign that doesn't have a draft yet.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        contactIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Contacts to draft for (ids from emilcrm_add_contacts or emilcrm_get_overview).",
+        },
+        campaignId: {
+          type: "string",
+          description: "Used only when contactIds is omitted — draft for this campaign's un-drafted contacts. Defaults to the first active campaign.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "emilcrm_set_next_action",
     description: "Set or replace the next action on existing contacts by id (e.g. after enriching them further).",
     inputSchema: {
@@ -137,6 +157,15 @@ async function callTool(name: string, args: Record<string, unknown>) {
       nextAction: args.nextAction as string | undefined,
       nextActionDate: args.nextActionDate as string | undefined,
     } as IngestBody);
+    await writeState(JSON.stringify(doc));
+    return { ok: true, report };
+  }
+
+  if (name === "emilcrm_draft_intro") {
+    const report = applyDrafts(doc, {
+      contactIds: args.contactIds as string[] | undefined,
+      campaignId: args.campaignId as string | undefined,
+    } as DraftBody);
     await writeState(JSON.stringify(doc));
     return { ok: true, report };
   }

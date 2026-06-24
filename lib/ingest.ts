@@ -9,6 +9,7 @@
 
 import { parseEnrichment } from "./apollo-parse";
 import { buildSearchRecipe, campaignICPToProfile, computeICP } from "./icp";
+import { DEFAULT_EMAIL_TEMPLATE, renderEmailDraft } from "./templates";
 import {
   Activity,
   ActivityType,
@@ -278,6 +279,56 @@ export function applyIngest(doc: PersistDoc, body: IngestBody): IngestReport {
   return report;
 }
 
+export interface DraftBody {
+  /** Specific contacts to draft for (e.g. the ids emilcrm_add_contacts just returned). */
+  contactIds?: string[];
+  /** When no contactIds: the campaign whose contacts to draft for. Defaults to first active. */
+  campaignId?: string;
+  /** When drafting by campaign, skip contacts that already have a draft. Default true. */
+  onlyMissing?: boolean;
+}
+
+export interface DraftReport {
+  drafted: Array<{ contactId: string; name: string; email: string | null; subject: string; body: string }>;
+  skipped: Array<{ contactId: string; name: string; reason: string }>;
+  counts: { drafted: number };
+}
+
+/**
+ * Render personalised intro drafts from each contact's campaign template (or the
+ * default when the campaign has none) and store them on the contacts as status
+ * "draft" — exactly what the in-app composer produces. Returns the rendered
+ * subject/body so the agent can also push them to Gmail. Caller persists `doc`.
+ */
+export function applyDrafts(doc: PersistDoc, body: DraftBody): DraftReport {
+  const state = doc.state;
+  const report: DraftReport = { drafted: [], skipped: [], counts: { drafted: 0 } };
+
+  let targets: Contact[];
+  if (body.contactIds?.length) {
+    targets = [];
+    for (const id of body.contactIds) {
+      const c = state.contacts.find((x) => x.id === id);
+      if (!c) report.skipped.push({ contactId: id, name: id, reason: "not found" });
+      else targets.push(c);
+    }
+  } else {
+    const campaignId = resolveCampaignId(state, body.campaignId);
+    const onlyMissing = body.onlyMissing !== false;
+    targets = state.contacts.filter((c) => c.campaignId === campaignId && (!onlyMissing || !c.emailDraft));
+  }
+
+  for (const c of targets) {
+    const campaign = state.campaigns.find((cm) => cm.id === c.campaignId);
+    const template = campaign?.emailTemplate ?? DEFAULT_EMAIL_TEMPLATE;
+    const rendered = renderEmailDraft(template, c, campaign);
+    c.emailDraft = { ...rendered, status: "draft", updatedAt: new Date().toISOString() };
+    report.drafted.push({ contactId: c.id, name: fullName(c), email: c.email ?? null, ...rendered });
+  }
+  report.counts.drafted = report.drafted.length;
+  return report;
+}
+
 /** A read-only digest the agent uses to pick a campaign, read its ICP, and avoid repeats. */
 export function buildDigest(doc: PersistDoc) {
   const { campaigns, contacts, prospects, meetings } = doc.state;
@@ -293,6 +344,8 @@ export function buildDigest(doc: PersistDoc) {
         color: c.color,
         targetICP: c.targetICP ?? null,
         derivedFrom: c.targetICP ? "defined" : "contacts",
+        emailTemplate: c.emailTemplate ?? null,
+        hasCustomTemplate: !!c.emailTemplate,
         searchRecipe: {
           industries: recipe.industries,
           sizes: recipe.sizes,
@@ -315,6 +368,7 @@ export function buildDigest(doc: PersistDoc) {
       linkedinUrl: c.linkedinUrl ?? null,
       stage: c.stage,
       campaignId: c.campaignId ?? null,
+      hasDraft: !!c.emailDraft,
     })),
     counts: {
       contacts: contacts.length,
