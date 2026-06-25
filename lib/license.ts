@@ -48,7 +48,12 @@ export async function validateKey(key: string): Promise<LicenseStatus> {
       | null;
     if (!json) return graceful("unverified", "Couldn't read the license server response — allowed for now.");
     const status = json.license_key?.status ?? (json.valid ? "active" : "invalid");
-    const valid = !!json.valid && status === "active";
+    // Lemon Squeezy issues keys as "inactive" until they're activated. For an
+    // honor-system, one-time-fee self-host product we don't want per-seat
+    // activation — owning a valid key that isn't expired or disabled is enough.
+    // (Robust either way: a disabled/expired key comes back valid:false or with
+    // that status, and both are rejected here.)
+    const valid = !!json.valid && status !== "expired" && status !== "disabled";
     return {
       required: licenseRequired(),
       valid,
