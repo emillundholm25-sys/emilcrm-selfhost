@@ -16,8 +16,7 @@ No arguments. Returns:
       "targetICP": { "industries": [...], "companySizes": [...], "locations": [...], "titles": [...] } | null,
       "derivedFrom": "defined" | "contacts",
       "searchRecipe": { "industries": [...], "sizes": [...], "locations": [...], "titles": [...], "hasSignal": true, "copyText": "…" },
-      "emailTemplate": { "subject": "…", "body": "…" } | null,   // intro template for this campaign
-      "hasCustomTemplate": true,
+      "emailTemplates": [ { "id": "…", "name": "Intro", "subject": "…", "body": "…" } ],   // 0+ templates for this campaign
       "counts": { "contacts": 12, "prospects": 30 }
     }
   ],
@@ -26,7 +25,7 @@ No arguments. Returns:
 }
 ```
 
-Use `searchRecipe` to drive the Apollo search. Use `contacts` to avoid resurfacing known people. `emailTemplate` is what `emilcrm_draft_intro` will fill; `hasDraft` flags contacts that already have an intro drafted.
+Use `searchRecipe` to drive the Apollo search. Use `contacts` to avoid resurfacing known people. `emailTemplates` are what `emilcrm_draft_intro` fills (pass a template's `id` to pick one); `hasDraft` flags contacts that already have an intro drafted.
 
 ## `emilcrm_add_prospects` (write — default)
 
@@ -57,11 +56,12 @@ Creates pipeline contacts in the **To contact** stage, each with the given first
 ```jsonc
 {
   "contactIds": ["…", "…"],   // ids from emilcrm_add_contacts; omit → all un-drafted contacts in the campaign
-  "campaignId": "…"           // used only when contactIds is omitted; defaults to first active
+  "campaignId": "…",          // used only when contactIds is omitted; defaults to first active
+  "templateId": "…"           // which campaign template (emailTemplates[].id); omit → the first
 }
 ```
 
-Renders each contact's campaign `emailTemplate` (merge fields `{{firstName}}` `{{lastName}}` `{{fullName}}` `{{company}}` `{{title}}` `{{industry}}` `{{location}}` `{{campaign}}`; a default template is used when the campaign has none) and saves it as a **draft** on each contact — it appears in the app's Intro email panel. Returns:
+Renders the chosen campaign template (merge fields `{{firstName}}` `{{lastName}}` `{{fullName}}` `{{company}}` `{{title}}` `{{industry}}` `{{location}}` `{{campaign}}`; a default template is used when the campaign has none) and saves it as a **draft** on each contact — it appears in the app's Intro email panel. Returns:
 
 ```jsonc
 { "ok": true, "report": {

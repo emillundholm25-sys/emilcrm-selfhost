@@ -42,8 +42,10 @@ export const STAGE_META: Record<Stage, StageMeta> = {
   lost: { label: "Lost", text: "text-rose-700", bg: "bg-rose-50", border: "border-rose-200", dot: "bg-rose-400" },
 };
 
-/** A reusable outreach email, with `{{merge}}` fields (see lib/templates.ts). */
+/** A reusable, named outreach email, with `{{merge}}` fields (see lib/templates.ts). */
 export interface EmailTemplate {
+  id: string;
+  name: string;
   subject: string;
   body: string;
 }
@@ -54,6 +56,8 @@ export interface EmailDraft {
   body: string;
   status: "draft" | "sent";
   updatedAt: string; // ISO datetime
+  /** Name of the template it was generated from, for display. */
+  templateName?: string;
 }
 
 export type MeetingType = "video" | "call" | "in_person";
@@ -173,8 +177,8 @@ export interface Campaign {
   /** Manually-defined target profile. If absent, the ICP is derived from the
    * campaign's own contacts. */
   targetICP?: CampaignICP;
-  /** Reusable intro-email template for this campaign's outreach. */
-  emailTemplate?: EmailTemplate;
+  /** Reusable intro-email templates for this campaign's outreach. */
+  emailTemplates?: EmailTemplate[];
   status: "active" | "archived";
   createdAt: string;
 }

@@ -26,6 +26,7 @@ import {
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { Activity, ActivityType, Contact, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
+import { DEFAULT_EMAIL_TEMPLATE, campaignTemplates } from "@/lib/templates";
 import { cn, dueLabel, formatActivityTime, formatCurrency, telHref } from "@/lib/utils";
 import { companyLookups, personLookups } from "@/lib/lookup";
 import { Avatar, Button, DueBadge, Tag, inputClass } from "@/components/ui";
@@ -319,7 +320,11 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
 
   const draft = contact.emailDraft;
   const campaign = campaigns.find((c) => c.id === contact.campaignId);
-  const usingDefault = !campaign?.emailTemplate;
+  const templates = campaignTemplates(campaign);
+  const usingDefault = templates.length === 0;
+  const pickable = templates.length ? templates : [DEFAULT_EMAIL_TEMPLATE];
+  const [templateId, setTemplateId] = useState(pickable[0]?.id);
+  const selectedId = pickable.some((t) => t.id === templateId) ? templateId : pickable[0]?.id;
 
   const copy = async () => {
     if (!draft) return;
@@ -331,22 +336,51 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
     }
   };
 
-  // Empty state — offer to draft from the campaign template.
+  // Hand off to the user's mail client with everything prefilled, then advance.
+  const send = () => {
+    if (!draft || !contact.email) return;
+    window.location.href = `mailto:${contact.email}?subject=${encodeURIComponent(
+      draft.subject
+    )}&body=${encodeURIComponent(draft.body)}`;
+    markDraftSent(contact.id);
+    toast("Opening your email app — marked as sent");
+  };
+
+  const picker =
+    pickable.length > 1 ? (
+      <select
+        value={selectedId}
+        onChange={(e) => setTemplateId(e.target.value)}
+        title="Template"
+        className={cn(inputClass, "h-8 w-auto max-w-[170px] text-xs")}
+      >
+        {pickable.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+    ) : null;
+
+  // Empty state — pick a template and draft.
   if (!draft) {
     return (
       <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Intro email</h2>
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center">
+        <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center">
           <Mail className="h-5 w-5 text-zinc-300" />
           <p className="text-sm text-zinc-500">
-            Draft a personalised intro from{" "}
-            <span className="font-medium text-zinc-700">{campaign?.name ?? "your"}</span>
-            {usingDefault ? " (default template)" : "'s template"}.
+            Draft a personalised intro for{" "}
+            <span className="font-medium text-zinc-700">{campaign?.name ?? "this contact"}</span>
+            {usingDefault ? " (using the default template)" : ""}.
           </p>
-          <Button size="sm" onClick={() => generateDraft(contact.id)}>
-            <Mail className="h-4 w-4" />
-            Draft intro
-          </Button>
+          <div className="flex items-center gap-2">
+            {picker}
+            <Button size="sm" onClick={() => generateDraft(contact.id, selectedId)}>
+              <Mail className="h-4 w-4" />
+              Draft intro
+            </Button>
+          </div>
           {!contact.email && (
             <p className="text-xs text-amber-600">No email on file yet — draft now, add the address before sending.</p>
           )}
@@ -370,10 +404,7 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
             <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">Draft</span>
           )}
         </h2>
-        <span className="truncate text-[11px] text-zinc-400">
-          from {campaign?.name ?? "default"}
-          {usingDefault ? " (default)" : ""} template
-        </span>
+        <span className="truncate text-[11px] text-zinc-400">from {draft.templateName ?? "default"}</span>
       </div>
 
       <div className="space-y-2">
@@ -404,25 +435,28 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button variant="secondary" size="sm" onClick={copy}>
             <Copy className="h-3.5 w-3.5 text-zinc-400" />
             Copy
           </Button>
           {!sent && (
-            <button
-              onClick={() => {
-                if (confirm("Replace this draft with a fresh one from the template? Your edits will be lost.")) {
-                  generateDraft(contact.id);
-                  toast("Draft regenerated");
-                }
-              }}
-              title="Regenerate from template"
-              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              Regenerate
-            </button>
+            <>
+              {picker}
+              <button
+                onClick={() => {
+                  if (confirm("Replace this draft with a fresh one from the selected template? Your edits will be lost.")) {
+                    generateDraft(contact.id, selectedId);
+                    toast("Draft regenerated");
+                  }
+                }}
+                title="Regenerate from the selected template"
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Regenerate
+              </button>
+            </>
           )}
           <button
             onClick={() => {
@@ -435,10 +469,21 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
           </button>
         </div>
         {!sent && (
-          <Button size="sm" onClick={() => { markDraftSent(contact.id); toast("Intro sent — follow-up queued in 3 days"); }}>
-            <Send className="h-3.5 w-3.5" />
-            Mark as sent
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                markDraftSent(contact.id);
+                toast("Marked as sent — follow-up queued in 3 days");
+              }}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
+            >
+              Mark sent
+            </button>
+            <Button size="sm" onClick={send} disabled={!contact.email}>
+              <Send className="h-3.5 w-3.5" />
+              Send
+            </Button>
+          </div>
         )}
       </div>
     </section>

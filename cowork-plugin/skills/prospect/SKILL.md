@@ -51,9 +51,9 @@ Always pass the `campaignId` you selected in step 1.
 
 ### 7. Draft intros (when you added contacts)
 
-If you added people as **contacts** and the user wants first-touch outreach prepared, call `emilcrm_draft_intro` with the `contactIds` that `emilcrm_add_contacts` returned. It fills the campaign's email template — merge fields like `{{firstName}}`, `{{company}}`, `{{title}}` are substituted per contact — saves a personalised draft on each (visible in the app's **Intro email** panel for the user to review and send), and returns the rendered subject + body.
+If you added people as **contacts** and the user wants first-touch outreach prepared, call `emilcrm_draft_intro` with the `contactIds` that `emilcrm_add_contacts` returned. It fills a campaign email template — merge fields like `{{firstName}}`, `{{company}}`, `{{title}}` are substituted per contact — saves a personalised draft on each (visible in the app's **Intro email** panel for the user to review and send), and returns the rendered subject + body.
 
-- The template comes from the campaign (`emailTemplate` in `emilcrm_get_overview`); when a campaign has none, a sensible default is used. If the user wants a specific angle, have them set the template on the campaign first.
+- A campaign can hold several named templates (`emailTemplates` in `emilcrm_get_overview`). If there's more than one, ask the user which to use and pass its `id` as `templateId`; with one (or none — a sensible default is used) just omit it.
 - **Gmail (optional):** if a Gmail connector is connected, save each returned draft as a **Gmail draft** (create draft only — never send). The user reviews and sends from Gmail. With no Gmail connector, the draft still lives in EmilCRM to copy/send.
 - **Calendar (optional):** if a Google Calendar connector is connected and the user wants to offer times, propose a few open slots to weave into the draft or a follow-up — but **booking stays the user's call**; you can also `emilcrm_set_next_action` to queue "Propose 2–3 times".
 

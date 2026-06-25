@@ -19,7 +19,7 @@ import {
   STAGE_META,
   fullName,
 } from "./types";
-import { DEFAULT_EMAIL_TEMPLATE, renderEmailDraft } from "./templates";
+import { renderEmailDraft, resolveTemplate } from "./templates";
 import { CAMPAIGN_COLORS, dateOffset, dedupePhones, pickAvatarColor, todayISODate, uid } from "./utils";
 
 export interface NewContactInput {
@@ -74,7 +74,7 @@ export interface NewCampaignInput {
   description?: string;
   color?: string;
   targetICP?: CampaignICP;
-  emailTemplate?: EmailTemplate;
+  emailTemplates?: EmailTemplate[];
 }
 
 interface CRMState {
@@ -115,8 +115,8 @@ interface CRMState {
   setNextAction: (id: string, action: string, date?: string) => void;
   completeNextAction: (id: string) => void;
 
-  // intro email drafts (from the campaign template)
-  generateDraft: (id: string) => boolean;
+  // intro email drafts (from a campaign template)
+  generateDraft: (id: string, templateId?: string) => boolean;
   updateDraft: (id: string, patch: { subject?: string; body?: string }) => void;
   markDraftSent: (id: string) => void;
   discardDraft: (id: string) => void;
@@ -167,22 +167,40 @@ export const useCRM = create<CRMState>()(
         });
       },
 
-      // Non-destructive: bring older saved data (pre-campaigns) up to date.
+      // Non-destructive: bring older saved data up to date — assign a default
+      // campaign to orphaned records, and migrate the legacy single
+      // `emailTemplate` to the new `emailTemplates` array.
       migrate: () => {
         const s = get();
-        if (s.campaigns.length > 0) return;
-        const def: Campaign = {
-          id: uid(),
-          name: "General",
-          color: "emerald",
-          status: "active",
-          createdAt: new Date().toISOString(),
+        // Legacy single-template → array (runs regardless of campaign count).
+        const migrateTemplates = (c: Campaign): Campaign => {
+          const legacy = (c as { emailTemplate?: { subject?: string; body?: string } }).emailTemplate;
+          if (c.emailTemplates || !legacy || !(legacy.subject || legacy.body)) return c;
+          const { emailTemplate: _drop, ...rest } = c as Campaign & { emailTemplate?: unknown };
+          return {
+            ...(rest as Campaign),
+            emailTemplates: [{ id: uid(), name: "Intro", subject: legacy.subject ?? "", body: legacy.body ?? "" }],
+          };
         };
-        set({
-          campaigns: [def],
-          contacts: s.contacts.map((c) => (c.campaignId ? c : { ...c, campaignId: def.id })),
-          prospects: s.prospects.map((p) => (p.campaignId ? p : { ...p, campaignId: def.id })),
-        });
+
+        if (s.campaigns.length === 0) {
+          const def: Campaign = {
+            id: uid(),
+            name: "General",
+            color: "emerald",
+            status: "active",
+            createdAt: new Date().toISOString(),
+          };
+          set({
+            campaigns: [def],
+            contacts: s.contacts.map((c) => (c.campaignId ? c : { ...c, campaignId: def.id })),
+            prospects: s.prospects.map((p) => (p.campaignId ? p : { ...p, campaignId: def.id })),
+          });
+          return;
+        }
+
+        const migrated = s.campaigns.map(migrateTemplates);
+        if (migrated.some((c, i) => c !== s.campaigns[i])) set({ campaigns: migrated });
       },
 
       addCampaign: (input) => {
@@ -194,7 +212,7 @@ export const useCRM = create<CRMState>()(
           description: input.description?.trim() || undefined,
           color: input.color || CAMPAIGN_COLORS[used % CAMPAIGN_COLORS.length],
           targetICP: input.targetICP,
-          emailTemplate: input.emailTemplate,
+          emailTemplates: input.emailTemplates,
           status: "active",
           createdAt: new Date().toISOString(),
         };
@@ -419,17 +437,26 @@ export const useCRM = create<CRMState>()(
         get().logActivity(id, "action_done", `Completed: ${done}`);
       },
 
-      // Render the contact's campaign template into a personalised draft.
-      generateDraft: (id) => {
+      // Render one of the campaign's templates into a personalised draft.
+      generateDraft: (id, templateId) => {
         const c = get().contacts.find((x) => x.id === id);
         if (!c) return false;
         const campaign = get().campaigns.find((cm) => cm.id === c.campaignId);
-        const template = campaign?.emailTemplate ?? DEFAULT_EMAIL_TEMPLATE;
+        const template = resolveTemplate(campaign, templateId);
         const { subject, body } = renderEmailDraft(template, c, campaign);
         set((s) => ({
           contacts: s.contacts.map((x) =>
             x.id === id
-              ? { ...x, emailDraft: { subject, body, status: "draft", updatedAt: new Date().toISOString() } }
+              ? {
+                  ...x,
+                  emailDraft: {
+                    subject,
+                    body,
+                    status: "draft",
+                    updatedAt: new Date().toISOString(),
+                    templateName: template.name,
+                  },
+                }
               : x
           ),
         }));

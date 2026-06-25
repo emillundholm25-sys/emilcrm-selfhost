@@ -9,7 +9,7 @@
 
 import { parseEnrichment } from "./apollo-parse";
 import { buildSearchRecipe, campaignICPToProfile, computeICP } from "./icp";
-import { DEFAULT_EMAIL_TEMPLATE, renderEmailDraft } from "./templates";
+import { campaignTemplates, renderEmailDraft, resolveTemplate } from "./templates";
 import {
   Activity,
   ActivityType,
@@ -284,6 +284,8 @@ export interface DraftBody {
   contactIds?: string[];
   /** When no contactIds: the campaign whose contacts to draft for. Defaults to first active. */
   campaignId?: string;
+  /** Which campaign template to use (id from emilcrm_get_overview). Defaults to the first. */
+  templateId?: string;
   /** When drafting by campaign, skip contacts that already have a draft. Default true. */
   onlyMissing?: boolean;
 }
@@ -320,9 +322,9 @@ export function applyDrafts(doc: PersistDoc, body: DraftBody): DraftReport {
 
   for (const c of targets) {
     const campaign = state.campaigns.find((cm) => cm.id === c.campaignId);
-    const template = campaign?.emailTemplate ?? DEFAULT_EMAIL_TEMPLATE;
+    const template = resolveTemplate(campaign, body.templateId);
     const rendered = renderEmailDraft(template, c, campaign);
-    c.emailDraft = { ...rendered, status: "draft", updatedAt: new Date().toISOString() };
+    c.emailDraft = { ...rendered, status: "draft", updatedAt: new Date().toISOString(), templateName: template.name };
     report.drafted.push({ contactId: c.id, name: fullName(c), email: c.email ?? null, ...rendered });
   }
   report.counts.drafted = report.drafted.length;
@@ -344,8 +346,12 @@ export function buildDigest(doc: PersistDoc) {
         color: c.color,
         targetICP: c.targetICP ?? null,
         derivedFrom: c.targetICP ? "defined" : "contacts",
-        emailTemplate: c.emailTemplate ?? null,
-        hasCustomTemplate: !!c.emailTemplate,
+        emailTemplates: campaignTemplates(c).map((t) => ({
+          id: t.id,
+          name: t.name,
+          subject: t.subject,
+          body: t.body,
+        })),
         searchRecipe: {
           industries: recipe.industries,
           sizes: recipe.sizes,

@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { AlertTriangle, Download, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertTriangle, Download, Plus, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
-import { MeetingType, STAGES, STAGE_META, Stage, fullName } from "@/lib/types";
+import { EmailTemplate, MeetingType, STAGES, STAGE_META, Stage, fullName } from "@/lib/types";
 import { parseEnrichment, parseLinkedInUrl } from "@/lib/apollo-parse";
-import { DEFAULT_EMAIL_TEMPLATE, MERGE_FIELDS } from "@/lib/templates";
+import { DEFAULT_EMAIL_TEMPLATE, MERGE_FIELDS, blankTemplate, campaignTemplates } from "@/lib/templates";
 import { BackupData, downloadBackup, parseBackup, restoreBackup } from "@/lib/backup";
-import { CAMPAIGN_COLORS, campaignColorClasses, cn, dateOffset, dedupePhones, todayISODate } from "@/lib/utils";
+import { CAMPAIGN_COLORS, campaignColorClasses, cn, dateOffset, dedupePhones, todayISODate, uid } from "@/lib/utils";
 import { Button, Field, inputClass } from "./ui";
 import { Modal } from "./modal";
 
@@ -195,9 +195,14 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
   const [sizes, setSizes] = useState((existing?.targetICP?.companySizes ?? []).join(", "));
   const [locations, setLocations] = useState((existing?.targetICP?.locations ?? []).join(", "));
   const [titles, setTitles] = useState((existing?.targetICP?.titles ?? []).join(", "));
-  const [emailSubject, setEmailSubject] = useState(existing?.emailTemplate?.subject ?? "");
-  const [emailBody, setEmailBody] = useState(existing?.emailTemplate?.body ?? "");
+  const [templates, setTemplates] = useState<EmailTemplate[]>(() => campaignTemplates(existing));
   const [bulk, setBulk] = useState("");
+
+  const addTemplate = (t?: EmailTemplate) =>
+    setTemplates((ts) => [...ts, t ?? blankTemplate(`Template ${ts.length + 1}`)]);
+  const updateTemplate = (id: string, patch: Partial<EmailTemplate>) =>
+    setTemplates((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  const removeTemplate = (id: string) => setTemplates((ts) => ts.filter((t) => t.id !== id));
 
   const submit = () => {
     if (!name.trim()) return;
@@ -208,10 +213,16 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
       titles: splitList(titles),
     };
     const hasICP = targetICP.industries.length || targetICP.companySizes.length || targetICP.locations.length || targetICP.titles.length;
-    const emailTemplate =
-      emailSubject.trim() || emailBody.trim()
-        ? { subject: emailSubject.trim(), body: emailBody.trim() }
-        : undefined;
+    // Keep templates with any content; drop fully-empty rows. Name falls back.
+    const emailTemplates = templates
+      .filter((t) => t.name.trim() || t.subject.trim() || t.body.trim())
+      .map((t, i) => ({
+        id: t.id,
+        name: t.name.trim() || `Template ${i + 1}`,
+        subject: t.subject.trim(),
+        body: t.body.trim(),
+      }));
+    const templatesPatch = emailTemplates.length ? emailTemplates : undefined;
 
     if (isEdit && existing) {
       updateCampaign(existing.id, {
@@ -219,7 +230,7 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
         description: description.trim() || undefined,
         color,
         targetICP: hasICP ? targetICP : undefined,
-        emailTemplate,
+        emailTemplates: templatesPatch,
       });
       toast("Campaign updated");
       close();
@@ -231,7 +242,7 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
       description,
       color,
       targetICP: hasICP ? targetICP : undefined,
-      emailTemplate,
+      emailTemplates: templatesPatch,
     });
 
     // Optional: bulk-import prospects into this campaign (one per line:
@@ -317,38 +328,70 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
       <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            Intro email template (optional)
+            Intro email templates (optional)
           </div>
           <button
             type="button"
-            onClick={() => {
-              setEmailSubject(DEFAULT_EMAIL_TEMPLATE.subject);
-              setEmailBody(DEFAULT_EMAIL_TEMPLATE.body);
-            }}
+            onClick={() => addTemplate({ ...DEFAULT_EMAIL_TEMPLATE, id: uid(), name: "Intro" })}
             className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            Use sample
+            Add sample
           </button>
         </div>
-        <Field label="Subject">
-          <input
-            className={inputClass}
-            value={emailSubject}
-            onChange={(e) => setEmailSubject(e.target.value)}
-            placeholder={DEFAULT_EMAIL_TEMPLATE.subject}
-          />
-        </Field>
-        <Field label="Body" className="mt-3">
-          <textarea
-            rows={7}
-            value={emailBody}
-            onChange={(e) => setEmailBody(e.target.value)}
-            placeholder={DEFAULT_EMAIL_TEMPLATE.body}
-            className={cn(inputClass, "h-auto resize-none py-2 leading-relaxed")}
-          />
-        </Field>
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+
+        {templates.length === 0 ? (
+          <p className="text-xs text-zinc-400">
+            No templates yet. Add one and each contact gets a personalised draft — they pick a template and send it from their page.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {templates.map((t, i) => (
+              <div key={t.id} className="rounded-lg border border-zinc-200 bg-white p-2.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    className={cn(inputClass, "h-8 flex-1 font-medium")}
+                    value={t.name}
+                    onChange={(e) => updateTemplate(t.id, { name: e.target.value })}
+                    placeholder={`Template ${i + 1}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeTemplate(t.id)}
+                    title="Remove template"
+                    className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <input
+                  className={cn(inputClass, "mt-2")}
+                  value={t.subject}
+                  onChange={(e) => updateTemplate(t.id, { subject: e.target.value })}
+                  placeholder={DEFAULT_EMAIL_TEMPLATE.subject}
+                />
+                <textarea
+                  rows={6}
+                  value={t.body}
+                  onChange={(e) => updateTemplate(t.id, { body: e.target.value })}
+                  placeholder={DEFAULT_EMAIL_TEMPLATE.body}
+                  className={cn(inputClass, "mt-2 h-auto resize-none py-2 leading-relaxed")}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => addTemplate()}
+          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add template
+        </button>
+
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-zinc-200 pt-2.5">
           <span className="text-xs text-zinc-400">Merge fields:</span>
           {MERGE_FIELDS.map((f) => (
             <code key={f} className="rounded bg-white px-1.5 py-0.5 text-[11px] text-zinc-600 ring-1 ring-zinc-200">
@@ -356,9 +399,6 @@ function CampaignModal({ campaignId }: { campaignId?: string }) {
             </code>
           ))}
         </div>
-        <p className="mt-1.5 text-xs text-zinc-400">
-          Each contact gets a personalised draft from this — edit and send it from their page.
-        </p>
       </div>
 
       {!isEdit && (

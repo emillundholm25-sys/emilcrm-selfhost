@@ -89,7 +89,7 @@ const TOOLS = [
   {
     name: "emilcrm_draft_intro",
     description:
-      "Write a personalised intro email for one or more contacts from their campaign's template (merge fields like {{firstName}} / {{company}} / {{title}} are filled in automatically) and save it as a draft on each — it shows up in the app's 'Intro email' panel for the user to review and send. Returns the rendered subject + body for each contact so you can ALSO save them as Gmail drafts via the Gmail connector (never auto-send — sending stays the user's call). Pass the contactIds that emilcrm_add_contacts returned; omit them to draft for every contact in a campaign that doesn't have a draft yet.",
+      "Write a personalised intro email for one or more contacts from one of their campaign's templates (merge fields like {{firstName}} / {{company}} / {{title}} are filled in automatically) and save it as a draft on each — it shows up in the app's 'Intro email' panel for the user to review and send. Returns the rendered subject + body for each contact so you can ALSO save them as Gmail drafts via the Gmail connector (never auto-send — sending stays the user's call). Pass the contactIds that emilcrm_add_contacts returned; omit them to draft for every contact in a campaign that doesn't have a draft yet. A campaign can have several templates (see emailTemplates in emilcrm_get_overview) — pass templateId to choose one, or omit it to use the first.",
     inputSchema: {
       type: "object",
       properties: {
@@ -101,6 +101,10 @@ const TOOLS = [
         campaignId: {
           type: "string",
           description: "Used only when contactIds is omitted — draft for this campaign's un-drafted contacts. Defaults to the first active campaign.",
+        },
+        templateId: {
+          type: "string",
+          description: "Which campaign template to use (an emailTemplates[].id from emilcrm_get_overview). Omit to use the campaign's first template.",
         },
       },
       additionalProperties: false,
@@ -165,6 +169,7 @@ async function callTool(name: string, args: Record<string, unknown>) {
     const report = applyDrafts(doc, {
       contactIds: args.contactIds as string[] | undefined,
       campaignId: args.campaignId as string | undefined,
+      templateId: args.templateId as string | undefined,
     } as DraftBody);
     await writeState(JSON.stringify(doc));
     return { ok: true, report };
