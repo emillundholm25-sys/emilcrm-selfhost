@@ -1,6 +1,7 @@
 "use client";
 
 import { Contact, Stage, STAGE_META, initials } from "@/lib/types";
+import { useT, STAGE_LABEL_SV } from "@/lib/i18n";
 import { cn, dueBucket } from "@/lib/utils";
 
 export function Avatar({
@@ -27,6 +28,7 @@ export function Avatar({
 
 export function StageBadge({ stage, className }: { stage: Stage; className?: string }) {
   const m = STAGE_META[stage];
+  const t = useT();
   return (
     <span
       className={cn(
@@ -38,7 +40,7 @@ export function StageBadge({ stage, className }: { stage: Stage; className?: str
       )}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
-      {m.label}
+      {t(m.label, STAGE_LABEL_SV[stage])}
     </span>
   );
 }
@@ -95,9 +97,9 @@ export function Button({
     "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40";
   const variants = {
     primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm",
-    secondary: "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50",
+    secondary: "bg-surface text-zinc-700 border border-zinc-300 hover:bg-zinc-50",
     ghost: "text-zinc-600 hover:bg-zinc-100",
-    danger: "bg-white text-rose-600 border border-rose-200 hover:bg-rose-50",
+    danger: "bg-surface text-rose-600 border border-rose-200 hover:bg-rose-50",
   };
   const sizes = { sm: "h-8 px-2.5 text-xs", md: "h-9 px-3.5 text-sm" };
   return (
@@ -130,4 +132,4 @@ export function Field({
 }
 
 export const inputClass =
-  "h-9 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20";
+  "h-9 w-full rounded-lg border border-zinc-300 bg-surface px-3 text-sm text-zinc-800 placeholder:text-zinc-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20";

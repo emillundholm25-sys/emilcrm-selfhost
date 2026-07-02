@@ -5,6 +5,7 @@ import { CalendarX, Check, MapPin, Phone, Video } from "lucide-react";
 import { Meeting, MEETING_TYPE_META, fullName } from "@/lib/types";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT, MEETING_STATUS_LABEL, MEETING_TYPE_SV } from "@/lib/i18n";
 import { cn, formatMeetingTime } from "@/lib/utils";
 import { Avatar } from "./ui";
 
@@ -21,6 +22,7 @@ export function MeetingCard({ meeting, showContact = true }: { meeting: Meeting;
   const contact = useCRM((s) => s.contacts.find((c) => c.id === meeting.contactId));
   const setMeetingStatus = useCRM((s) => s.setMeetingStatus);
   const toast = useUI((s) => s.toast);
+  const t = useT();
   const Icon = TYPE_ICON[meeting.type];
   const past = new Date(meeting.start).getTime() < Date.now();
 
@@ -46,11 +48,11 @@ export function MeetingCard({ meeting, showContact = true }: { meeting: Meeting;
               STATUS_STYLE[meeting.status]
             )}
           >
-            {meeting.status === "no_show" ? "No-show" : meeting.status}
+            {t(MEETING_STATUS_LABEL[meeting.status].en, MEETING_STATUS_LABEL[meeting.status].sv)}
           </span>
         </div>
         <div className="truncate text-xs text-zinc-400">
-          {MEETING_TYPE_META[meeting.type].label}
+          {t(MEETING_TYPE_META[meeting.type].label, MEETING_TYPE_SV[meeting.type])}
           {meeting.location ? ` · ${meeting.location}` : ""}
         </div>
       </div>
@@ -70,9 +72,9 @@ export function MeetingCard({ meeting, showContact = true }: { meeting: Meeting;
           <button
             onClick={() => {
               setMeetingStatus(meeting.id, "completed");
-              toast("Marked as held");
+              toast(t("Marked as held", "Markerat som genomfört"));
             }}
-            title="Mark as held"
+            title={t("Mark as held", "Markera som genomfört")}
             className="rounded-md p-1.5 text-zinc-400 hover:bg-brand-50 hover:text-brand-600"
           >
             <Check className="h-4 w-4" />
@@ -80,9 +82,9 @@ export function MeetingCard({ meeting, showContact = true }: { meeting: Meeting;
           <button
             onClick={() => {
               setMeetingStatus(meeting.id, past ? "no_show" : "cancelled");
-              toast(past ? "Marked no-show" : "Meeting cancelled");
+              toast(past ? t("Marked no-show", "Markerat som uteblev") : t("Meeting cancelled", "Möte inställt"));
             }}
-            title={past ? "Mark no-show" : "Cancel meeting"}
+            title={past ? t("Mark no-show", "Markera uteblev") : t("Cancel meeting", "Ställ in möte")}
             className="rounded-md p-1.5 text-zinc-400 hover:bg-rose-50 hover:text-rose-500"
           >
             <CalendarX className="h-4 w-4" />

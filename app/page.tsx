@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { AlertCircle, CalendarDays, CheckCircle2, Inbox } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT } from "@/lib/i18n";
 import { Contact, fullName } from "@/lib/types";
 import { DueBucket, dueBucket, matchesCampaign } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -19,6 +20,14 @@ const BUCKET_LABEL: Record<DueBucket, string> = {
   later: "Later",
   queue: "Asap · no date",
 };
+const BUCKET_LABEL_SV: Record<DueBucket, string> = {
+  overdue: "Försenade",
+  today: "Idag",
+  tomorrow: "Imorgon",
+  week: "Denna vecka",
+  later: "Senare",
+  queue: "Snarast · inget datum",
+};
 const BUCKET_ACCENT: Record<DueBucket, string> = {
   overdue: "text-rose-600",
   today: "text-brand-600",
@@ -32,6 +41,7 @@ export default function ActionStreamPage() {
   const allContacts = useCRM((s) => s.contacts);
   const openModal = useUI((s) => s.openModal);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
+  const t = useT();
 
   const { groups, needsAction, dueTodayCount } = useMemo(() => {
     const contacts = allContacts.filter((c) => matchesCampaign(activeCampaignId, c.campaignId));
@@ -63,13 +73,16 @@ export default function ActionStreamPage() {
         title="Action Stream"
         subtitle={
           dueTodayCount > 0
-            ? `${dueTodayCount} action${dueTodayCount > 1 ? "s" : ""} need attention today`
-            : "You're all caught up for today 🎉"
+            ? t(
+                `${dueTodayCount} action${dueTodayCount > 1 ? "s" : ""} need attention today`,
+                `${dueTodayCount} ${dueTodayCount > 1 ? "åtgärder behöver" : "åtgärd behöver"} uppmärksamhet idag`
+              )
+            : t("You're all caught up for today", "Du är ikapp för idag")
         }
         actions={
           <Button variant="secondary" onClick={() => openModal({ kind: "book-meeting" })}>
             <CalendarDays className="h-4 w-4 text-zinc-400" />
-            Book meeting
+            {t("Book meeting", "Boka möte")}
           </Button>
         }
       />
@@ -83,12 +96,12 @@ export default function ActionStreamPage() {
               {BUCKET_ORDER.filter((b) => groups[b].length > 0).map((b) => (
                 <section
                   key={b}
-                  className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm"
+                  className="overflow-hidden rounded-xl border border-zinc-200 bg-surface shadow-sm"
                 >
                   <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
                     {b === "overdue" && <AlertCircle className="h-4 w-4 text-rose-500" />}
                     <h2 className={`text-xs font-semibold uppercase tracking-wide ${BUCKET_ACCENT[b]}`}>
-                      {BUCKET_LABEL[b]}
+                      {t(BUCKET_LABEL[b], BUCKET_LABEL_SV[b])}
                     </h2>
                     <span className="text-xs font-medium text-zinc-400">{groups[b].length}</span>
                   </div>
@@ -101,11 +114,11 @@ export default function ActionStreamPage() {
               ))}
 
               {needsAction.length > 0 && (
-                <section className="overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-white/60">
+                <section className="overflow-hidden rounded-xl border border-dashed border-zinc-300 bg-surface/60">
                   <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
                     <Inbox className="h-4 w-4 text-zinc-400" />
                     <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                      Needs a next action
+                      {t("Needs a next action", "Saknar nästa åtgärd")}
                     </h2>
                     <span className="text-xs font-medium text-zinc-400">{needsAction.length}</span>
                   </div>
@@ -121,7 +134,7 @@ export default function ActionStreamPage() {
                           <div className="truncate text-sm font-semibold text-zinc-900">{fullName(c)}</div>
                           {c.company && <div className="truncate text-xs text-zinc-400">{c.company}</div>}
                         </div>
-                        <span className="text-xs font-medium text-brand-600">+ Add action</span>
+                        <span className="text-xs font-medium text-brand-600">{t("+ Add action", "+ Lägg till åtgärd")}</span>
                       </button>
                     ))}
                   </div>
@@ -136,14 +149,18 @@ export default function ActionStreamPage() {
 }
 
 function EmptyState() {
+  const t = useT();
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white py-20 text-center">
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-surface py-20 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50">
         <CheckCircle2 className="h-6 w-6 text-brand-600" />
       </div>
-      <h3 className="mt-4 text-base font-semibold text-zinc-900">Inbox zero on actions</h3>
+      <h3 className="mt-4 text-base font-semibold text-zinc-900">{t("Inbox zero on actions", "Inga åtgärder kvar")}</h3>
       <p className="mt-1 max-w-xs text-sm text-zinc-500">
-        Every contact is either parked or closed. Add a contact to start booking meetings.
+        {t(
+          "Every contact is either parked or closed. Add a contact to start booking meetings.",
+          "Alla kontakter är antingen parkerade eller avslutade. Lägg till en kontakt för att börja boka möten."
+        )}
       </p>
     </div>
   );

@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Class-based dark mode: toggled by adding `.dark` to <html> (see lib/theme.ts). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
@@ -14,11 +17,47 @@
   --color-brand-700: #047857;
   --color-brand-800: #065f46;
   --color-brand-900: #064e3b;
+
+  /* Semantic surface for cards (was bg-white). Flips dark below. */
+  --color-surface: #ffffff;
+  /* Always-dark chip (toasts) — intentionally NOT flipped in dark mode. */
+  --color-ink: #18181b;
 }
 
 :root {
+  color-scheme: light;
   --background: #f7f8f8;
   --foreground: #18181b;
+}
+
+/*
+ * Dark mode. The app uses the `zinc` ramp semantically (low numbers = light
+ * surfaces, high numbers = dark text). Because Tailwind v4 utilities resolve to
+ * `var(--color-zinc-*)`, we invert the ramp here once and every existing
+ * bg-/text-/border-zinc utility flips automatically — no per-component edits.
+ */
+html.dark {
+  color-scheme: dark;
+  --background: #0d0d0f;
+  --foreground: #e4e4e7;
+
+  --color-surface: #18181b; /* cards sit above the page background */
+
+  --color-zinc-50: #202024; /* inset fills — lighter than a card */
+  --color-zinc-100: #27272b;
+  --color-zinc-200: #303036; /* borders */
+  --color-zinc-300: #3f3f46;
+  --color-zinc-400: #8a8a93; /* captions / muted icons */
+  --color-zinc-500: #a1a1aa; /* secondary text */
+  --color-zinc-600: #c2c2c9;
+  --color-zinc-700: #d4d4d8;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-900: #f4f4f5; /* headings */
+  --color-zinc-950: #fafafa;
+
+  /* Soften brand tints used as highlight panels so they don't glow. */
+  --color-brand-50: #0c2a20;
+  --color-brand-100: #0f3a2b;
 }
 
 html,
@@ -49,6 +88,12 @@ body {
 }
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+html.dark * {
+  scrollbar-color: #3f3f46 transparent;
+}
+html.dark *::-webkit-scrollbar-thumb {
+  background-color: #3f3f46;
 }
 
 @keyframes fade-in {

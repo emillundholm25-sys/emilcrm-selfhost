@@ -8,10 +8,22 @@ import {
   parseISO,
   startOfDay,
 } from "date-fns";
+import { sv } from "date-fns/locale";
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
+
+// Locale for date-label words ("Today", month names, …). Plain module state,
+// kept in sync by lib/i18n's setLocale/initLocale so the pure date helpers
+// below can localise without every caller threading a locale through.
+let _locale: "en" | "sv" = "en";
+export function setDateLocale(l: "en" | "sv"): void {
+  _locale = l;
+}
+const isSv = () => _locale === "sv";
+/** date-fns options for the active locale (Swedish month/day names). */
+const dfns = () => (isSv() ? { locale: sv } : undefined);
 
 /** True if an entity's campaign matches the active campaign filter ("all" = any). */
 export function matchesCampaign(active: string, campaignId?: string): boolean {
@@ -57,23 +69,23 @@ export function dueBucket(dateStr?: string): DueBucket {
 
 /** Friendly label for a due date, e.g. "Today", "2 days overdue", "Fri 26 Jun". */
 export function dueLabel(dateStr?: string): string {
-  if (!dateStr) return "Asap";
+  if (!dateStr) return isSv() ? "Snarast" : "Asap";
   const d = parseISO(dateStr);
-  if (isToday(d)) return "Today";
-  if (isTomorrow(d)) return "Tomorrow";
-  if (isYesterday(d)) return "Yesterday";
+  if (isToday(d)) return isSv() ? "Idag" : "Today";
+  if (isTomorrow(d)) return isSv() ? "Imorgon" : "Tomorrow";
+  if (isYesterday(d)) return isSv() ? "Igår" : "Yesterday";
   const bucket = dueBucket(dateStr);
   if (bucket === "overdue") {
-    const days = formatDistanceToNowStrict(startOfDay(d), { unit: "day" });
-    return `${days} overdue`;
+    const days = formatDistanceToNowStrict(startOfDay(d), { unit: "day", locale: isSv() ? sv : undefined });
+    return isSv() ? `${days} försenat` : `${days} overdue`;
   }
-  return format(d, isThisYear(d) ? "EEE d MMM" : "d MMM yyyy");
+  return format(d, isThisYear(d) ? "EEE d MMM" : "d MMM yyyy", dfns());
 }
 
 /** "in 3 days", "in 2 weeks" for upcoming non-urgent dates. */
 export function relativeFuture(dateStr?: string): string {
   if (!dateStr) return "";
-  return formatDistanceToNowStrict(parseISO(dateStr), { addSuffix: true });
+  return formatDistanceToNowStrict(parseISO(dateStr), { addSuffix: true, locale: isSv() ? sv : undefined });
 }
 
 export function formatMeetingTime(iso: string): string {
@@ -83,17 +95,17 @@ export function formatMeetingTime(iso: string): string {
 
 export function formatMeetingDay(iso: string): string {
   const d = parseISO(iso);
-  if (isToday(d)) return "Today";
-  if (isTomorrow(d)) return "Tomorrow";
-  if (isYesterday(d)) return "Yesterday";
-  return format(d, isThisYear(d) ? "EEEE, d MMMM" : "EEEE, d MMMM yyyy");
+  if (isToday(d)) return isSv() ? "Idag" : "Today";
+  if (isTomorrow(d)) return isSv() ? "Imorgon" : "Tomorrow";
+  if (isYesterday(d)) return isSv() ? "Igår" : "Yesterday";
+  return format(d, isThisYear(d) ? "EEEE, d MMMM" : "EEEE, d MMMM yyyy", dfns());
 }
 
 export function formatActivityTime(iso: string): string {
   const d = parseISO(iso);
-  if (isToday(d)) return `Today, ${format(d, "HH:mm")}`;
-  if (isYesterday(d)) return `Yesterday, ${format(d, "HH:mm")}`;
-  return format(d, isThisYear(d) ? "d MMM, HH:mm" : "d MMM yyyy");
+  if (isToday(d)) return `${isSv() ? "Idag" : "Today"}, ${format(d, "HH:mm")}`;
+  if (isYesterday(d)) return `${isSv() ? "Igår" : "Yesterday"}, ${format(d, "HH:mm")}`;
+  return format(d, isThisYear(d) ? "d MMM, HH:mm" : "d MMM yyyy", dfns());
 }
 
 export function formatCurrency(n?: number): string {

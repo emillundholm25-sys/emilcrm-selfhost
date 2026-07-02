@@ -68,6 +68,17 @@ export function checkPassword(input: string): boolean {
   return pw.length > 0 && timingSafeEqual(input, pw);
 }
 
+/**
+ * Strict gate for endpoints that spend money (LLM calls, telephony): requires
+ * auth to be CONFIGURED and the request to carry a valid session. Unlike the
+ * open-until-configured reads, these stay off on an unauthenticated deploy —
+ * otherwise anyone who finds the URL could burn the owner's API credits.
+ */
+export async function requireSession(req: Request): Promise<boolean> {
+  if (!authEnabled()) return false;
+  return verifySession(tokenFromCookieHeader(req.headers.get("cookie")));
+}
+
 /** Read the session token from a raw Cookie header (route handlers). */
 export function tokenFromCookieHeader(header: string | null): string | undefined {
   if (!header) return undefined;

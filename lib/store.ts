@@ -7,6 +7,8 @@ import { parseEnrichment, parseLinkedInUrl } from "./apollo-parse";
 import {
   Activity,
   ActivityType,
+  CallRecord,
+  CallScript,
   Campaign,
   CampaignICP,
   Contact,
@@ -120,6 +122,12 @@ interface CRMState {
   updateDraft: (id: string, patch: { subject?: string; body?: string }) => void;
   markDraftSent: (id: string) => void;
   discardDraft: (id: string) => void;
+
+  // cold-call scripts + logged calls
+  setCallScript: (id: string, script: CallScript) => void;
+  updateCallScript: (id: string, text: string) => void;
+  discardCallScript: (id: string) => void;
+  addCallRecord: (id: string, partial: Partial<CallRecord>) => string;
 
   // meetings
   bookMeeting: (input: BookMeetingInput) => string;
@@ -494,6 +502,44 @@ export const useCRM = create<CRMState>()(
         set((s) => ({
           contacts: s.contacts.map((x) => (x.id === id ? { ...x, emailDraft: undefined } : x)),
         })),
+
+      setCallScript: (id, script) =>
+        set((s) => ({
+          contacts: s.contacts.map((x) => (x.id === id ? { ...x, callScript: script } : x)),
+        })),
+
+      updateCallScript: (id, text) =>
+        set((s) => ({
+          contacts: s.contacts.map((x) =>
+            x.id === id && x.callScript ? { ...x, callScript: { ...x.callScript, text } } : x
+          ),
+        })),
+
+      discardCallScript: (id) =>
+        set((s) => ({
+          contacts: s.contacts.map((x) => (x.id === id ? { ...x, callScript: undefined } : x)),
+        })),
+
+      // Log an optimistic call record on dial; the webhook later enriches it
+      // (transcript/summary) by matching cloudtalkCallId or the callee number.
+      addCallRecord: (id, partial) => {
+        const recordId = uid();
+        const record: CallRecord = {
+          id: recordId,
+          direction: "outbound",
+          startedAt: new Date().toISOString(),
+          status: "initiated",
+          ...partial,
+        };
+        const c = get().contacts.find((x) => x.id === id);
+        set((s) => ({
+          contacts: s.contacts.map((x) =>
+            x.id === id ? { ...x, calls: [record, ...(x.calls ?? [])] } : x
+          ),
+        }));
+        if (c) get().logActivity(id, "call", `Called ${fullName(c)} via CloudTalk`);
+        return recordId;
+      },
 
       bookMeeting: (input) => {
         const id = uid();

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { KeyRound, Zap } from "lucide-react";
 import { Button, inputClass } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /**
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
  * REQUIRE_LICENSE is set on the deployment — the owner's instance skips it.
  */
 export function LicenseGate({ message }: { message?: string }) {
+  const t = useT();
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,28 +34,28 @@ export function LicenseGate({ message }: { message?: string }) {
         window.location.reload();
         return;
       }
-      setError(json?.message || json?.error || "That key isn't valid. Check it and try again.");
+      setError(json?.message || json?.error || t("That key isn't valid. Check it and try again.", "Nyckeln är inte giltig. Kontrollera och försök igen."));
     } catch {
-      setError("Couldn't reach the server. Try again in a moment.");
+      setError(t("Couldn't reach the server. Try again in a moment.", "Kunde inte nå servern. Försök igen om en stund."));
     }
     setBusy(false);
   };
 
   return (
     <div className="flex min-h-screen flex-1 items-center justify-center bg-zinc-50 px-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-7 shadow-sm">
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-surface p-7 shadow-sm">
         <div className="mb-5 flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
             <Zap className="h-5 w-5" fill="currentColor" />
           </div>
           <div className="leading-tight">
-            <div className="text-base font-semibold tracking-tight text-zinc-900">Activate EmilCRM</div>
-            <div className="text-xs text-zinc-400">Enter your license key to unlock</div>
+            <div className="text-base font-semibold tracking-tight text-zinc-900">{t("Activate EmilCRM", "Aktivera EmilCRM")}</div>
+            <div className="text-xs text-zinc-400">{t("Enter your license key to unlock", "Ange din licensnyckel för att låsa upp")}</div>
           </div>
         </div>
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-zinc-500">License key</span>
+          <span className="text-xs font-medium text-zinc-500">{t("License key", "Licensnyckel")}</span>
           <div className="relative">
             <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
@@ -72,13 +74,13 @@ export function LicenseGate({ message }: { message?: string }) {
         )}
 
         <Button type="submit" disabled={busy || !key.trim()} className="mt-4 w-full">
-          {busy ? "Activating…" : "Activate"}
+          {busy ? t("Activating…", "Aktiverar…") : t("Activate", "Aktivera")}
         </Button>
 
         <p className="mt-4 text-center text-xs text-zinc-400">
-          Bought EmilCRM? Your key is in the purchase email. Need help?{" "}
+          {t("Bought EmilCRM? Your key is in the purchase email. Need help?", "Köpt EmilCRM? Din nyckel finns i köpmejlet. Behöver du hjälp?")}{" "}
           <a href="mailto:emillundholm25@gmail.com" className="text-brand-600 hover:underline">
-            Contact support
+            {t("Contact support", "Kontakta support")}
           </a>
           .
         </p>

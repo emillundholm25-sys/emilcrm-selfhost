@@ -26,10 +26,20 @@ you bring your own Apollo account for prospecting.
 | `INGEST_TOKEN` | For prospecting | Bearer token for the Cowork prospecting connector (`/api/mcp`, `/api/ingest`). Generate: `openssl rand -base64 32`. |
 | `REQUIRE_LICENSE` | Pre-set to `1` | Turns on the license gate. Leave as `1` for a paid copy. |
 | `LICENSE_KEY` | Optional | Your license key. You can set it here, or just paste it in the in-app activation screen (it's stored in your database). |
+| `ANTHROPIC_API_KEY` | Optional | Enables AI cold-call scripts + call summaries. Get one at console.anthropic.com. |
+| `ANTHROPIC_MODEL` | Optional | Override the Claude model (defaults to `claude-opus-4-8`; set `claude-sonnet-4-6` to cut cost). |
+| `CLOUDTALK_ACCESS_KEY_ID` | Optional | CloudTalk API key id — enables click-to-call. |
+| `CLOUDTALK_ACCESS_KEY_SECRET` | Optional | CloudTalk API key secret. |
+| `CLOUDTALK_AGENT_ID` | Optional | The CloudTalk agent whose phone rings first on click-to-call. |
+| `CLOUDTALK_WEBHOOK_SECRET` | Optional | Shared secret for the call-transcript webhook (see Settings → Telephony in the app). |
 
 Every variable except `DATABASE_URL` is optional to *boot* — the app degrades gracefully:
 no auth secrets → no login gate; no `INGEST_TOKEN` → prospecting endpoints stay off; no
 `REQUIRE_LICENSE` → no license gate. Nothing locks you out by accident.
+
+> **One deliberate exception:** the AI + calling endpoints (`ANTHROPIC_API_KEY`,
+> `CLOUDTALK_*`) spend real money, so they stay **off** until the login gate is
+> configured (`APP_PASSWORD` + `AUTH_SECRET`). Set those two before adding paid keys.
 
 ## After deploying
 

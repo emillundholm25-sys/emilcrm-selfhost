@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,12 +11,15 @@ import {
   CalendarX,
   Check,
   CheckCircle2,
+  ChevronDown,
   Copy,
   ExternalLink,
+  FileText,
   Flag,
   Mail,
   Pencil,
   Phone,
+  PhoneCall,
   RefreshCw,
   Send,
   StickyNote,
@@ -25,7 +28,8 @@ import {
 } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
-import { Activity, ActivityType, Contact, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
+import { Activity, ActivityType, CallRecord, Contact, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
+import { useT, useLocale, STAGE_LABEL_SV } from "@/lib/i18n";
 import { DEFAULT_EMAIL_TEMPLATE, campaignTemplates } from "@/lib/templates";
 import { cn, dueLabel, formatActivityTime, formatCurrency, telHref } from "@/lib/utils";
 import { companyLookups, personLookups } from "@/lib/lookup";
@@ -61,6 +65,7 @@ export default function ContactDetailPage() {
   const campaigns = useCRM((s) => s.campaigns);
   const openModal = useUI((s) => s.openModal);
   const toast = useUI((s) => s.toast);
+  const t = useT();
 
   const [note, setNote] = useState("");
 
@@ -82,9 +87,9 @@ export default function ContactDetailPage() {
   if (!contact) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-        <p className="text-sm text-zinc-500">This contact no longer exists.</p>
+        <p className="text-sm text-zinc-500">{t("This contact no longer exists.", "Den här kontakten finns inte längre.")}</p>
         <Link href="/contacts" className="text-sm font-medium text-brand-600 hover:underline">
-          ← Back to contacts
+          {t("← Back to contacts", "← Tillbaka till kontakter")}
         </Link>
       </div>
     );
@@ -102,13 +107,13 @@ export default function ContactDetailPage() {
   return (
     <div className="flex-1 overflow-y-auto">
       {/* Header */}
-      <div className="border-b border-zinc-200 bg-white px-7 py-5">
+      <div className="border-b border-zinc-200 bg-surface px-7 py-5">
         <button
           onClick={() => router.back()}
           className="mb-4 inline-flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-800"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {t("Back", "Tillbaka")}
         </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -119,8 +124,8 @@ export default function ContactDetailPage() {
                 {[contact.title, contact.company].filter(Boolean).join(" · ") || "—"}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {contact.tags.map((t) => (
-                  <Tag key={t} label={t} />
+                {contact.tags.map((tag) => (
+                  <Tag key={tag} label={tag} />
                 ))}
               </div>
             </div>
@@ -131,7 +136,7 @@ export default function ContactDetailPage() {
                 value={contact.campaignId ?? ""}
                 onChange={(e) => updateContact(contact.id, { campaignId: e.target.value })}
                 className={cn(inputClass, "w-40")}
-                title="Campaign"
+                title={t("Campaign", "Kampanj")}
               >
                 {campaigns.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -147,27 +152,27 @@ export default function ContactDetailPage() {
             >
               {STAGES.map((s) => (
                 <option key={s} value={s}>
-                  {STAGE_META[s].label}
+                  {t(STAGE_META[s].label, STAGE_LABEL_SV[s])}
                 </option>
               ))}
             </select>
             <Button variant="secondary" onClick={() => openModal({ kind: "edit-contact", contactId: contact.id })}>
               <Pencil className="h-4 w-4 text-zinc-400" />
-              Edit
+              {t("Edit", "Redigera")}
             </Button>
             <Button onClick={() => openModal({ kind: "book-meeting", contactId: contact.id })}>
               <CalendarPlus className="h-4 w-4" />
-              Book meeting
+              {t("Book meeting", "Boka möte")}
             </Button>
             <button
               onClick={() => {
-                if (confirm(`Delete ${fullName(contact)}? This removes their meetings and history.`)) {
+                if (confirm(t(`Delete ${fullName(contact)}? This removes their meetings and history.`, `Radera ${fullName(contact)}? Detta tar bort deras möten och historik.`))) {
                   deleteContact(contact.id);
-                  toast("Contact deleted");
+                  toast(t("Contact deleted", "Kontakt raderad"));
                   router.push("/contacts");
                 }
               }}
-              title="Delete contact"
+              title={t("Delete contact", "Radera kontakt")}
               className="rounded-lg border border-zinc-300 p-2 text-zinc-400 transition-colors hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
             >
               <Trash2 className="h-4 w-4" />
@@ -180,14 +185,14 @@ export default function ContactDetailPage() {
         {/* Main column */}
         <div className="space-y-6 lg:col-span-2">
           {/* Next action */}
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Next action</h2>
+          <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Next action", "Nästa åtgärd")}</h2>
             {contact.nextAction ? (
               <div className="flex items-center gap-3 rounded-lg border border-brand-100 bg-brand-50/50 p-3">
                 <button
                   onClick={() => {
                     completeNextAction(contact.id);
-                    toast("Action completed — set the next one");
+                    toast(t("Action completed — set the next one", "Åtgärd klar — sätt nästa"));
                     openModal({ kind: "next-action", contactId: contact.id });
                   }}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 border-brand-400 text-transparent transition-colors hover:bg-brand-600 hover:text-white"
@@ -202,7 +207,7 @@ export default function ContactDetailPage() {
                   onClick={() => openModal({ kind: "next-action", contactId: contact.id })}
                   className="text-xs font-medium text-brand-600 hover:underline"
                 >
-                  Edit
+                  {t("Edit", "Redigera")}
                 </button>
               </div>
             ) : (
@@ -211,7 +216,7 @@ export default function ContactDetailPage() {
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-zinc-300 py-3 text-sm font-medium text-brand-600 transition-colors hover:bg-brand-50"
               >
                 <Flag className="h-4 w-4" />
-                Set a next action
+                {t("Set a next action", "Sätt en nästa åtgärd")}
               </button>
             )}
           </section>
@@ -219,21 +224,24 @@ export default function ContactDetailPage() {
           {/* Intro email */}
           <IntroEmailCard contact={contact} />
 
+          {/* Cold call */}
+          <CallCard contact={contact} />
+
           {/* Meetings */}
-          <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <section className="overflow-hidden rounded-xl border border-zinc-200 bg-surface shadow-sm">
             <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Meetings ({sortedMeetings.length})
+                {t("Meetings", "Möten")} ({sortedMeetings.length})
               </h2>
               <button
                 onClick={() => openModal({ kind: "book-meeting", contactId: contact.id })}
                 className="text-xs font-medium text-brand-600 hover:underline"
               >
-                + Book
+                {t("+ Book", "+ Boka")}
               </button>
             </div>
             {sortedMeetings.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-zinc-400">No meetings booked yet.</p>
+              <p className="px-4 py-6 text-center text-sm text-zinc-400">{t("No meetings booked yet.", "Inga möten bokade än.")}</p>
             ) : (
               <div className="divide-y divide-zinc-100">
                 {sortedMeetings.map((m) => (
@@ -244,41 +252,41 @@ export default function ContactDetailPage() {
           </section>
 
           {/* Activity */}
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Activity</h2>
+          <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Activity", "Aktivitet")}</h2>
             <Timeline activities={sortedActivity} />
           </section>
         </div>
 
         {/* Side column */}
         <div className="space-y-6">
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Details</h2>
+          <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+            <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Details", "Detaljer")}</h2>
             <dl className="space-y-3 text-sm">
-              <Detail label="Email" value={contact.email} href={contact.email ? `mailto:${contact.email}` : undefined} />
+              <Detail label={t("Email", "E-post")} value={contact.email} href={contact.email ? `mailto:${contact.email}` : undefined} />
               <PhonesDetail phones={phones} />
-              <Detail label="HQ / main line" value={contact.hqPhone} href={contact.hqPhone ? telHref(contact.hqPhone) : undefined} />
-              <Detail label="Company" value={contact.company} />
-              <Detail label="Industry" value={contact.industry} />
-              <Detail label="Company size" value={contact.companySize ? `${contact.companySize} employees` : undefined} />
-              <Detail label="Location" value={contact.location} />
+              <Detail label={t("HQ / main line", "Växel / huvudnummer")} value={contact.hqPhone} href={contact.hqPhone ? telHref(contact.hqPhone) : undefined} />
+              <Detail label={t("Company", "Företag")} value={contact.company} />
+              <Detail label={t("Industry", "Bransch")} value={contact.industry} />
+              <Detail label={t("Company size", "Företagsstorlek")} value={contact.companySize ? `${contact.companySize} ${t("employees", "anställda")}` : undefined} />
+              <Detail label={t("Location", "Ort")} value={contact.location} />
               <Detail
-                label="LinkedIn"
-                value={contact.linkedinUrl ? "View profile" : undefined}
+                label={t("LinkedIn", "LinkedIn")}
+                value={contact.linkedinUrl ? t("View profile", "Visa profil") : undefined}
                 href={contact.linkedinUrl}
               />
-              <Detail label="Potential value" value={formatCurrency(contact.value)} />
-              <Detail label="Source" value={contact.source} />
+              <Detail label={t("Potential value", "Potentiellt värde")} value={formatCurrency(contact.value)} />
+              <Detail label={t("Source", "Källa")} value={contact.source} />
             </dl>
           </section>
 
           {/* Phone-number lookups for when Apollo comes up short */}
           {(contact.company || contact.firstName) && (
-            <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
               <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Find phone numbers
+                {t("Find phone numbers", "Hitta telefonnummer")}
               </h2>
-              <p className="mb-3 text-xs text-zinc-400">Open a directory search to grab missing numbers.</p>
+              <p className="mb-3 text-xs text-zinc-400">{t("Open a directory search to grab missing numbers.", "Öppna en katalogsökning för att hitta nummer som saknas.")}</p>
               {contact.company && (
                 <LookupRow label={`HQ · ${contact.company}`} links={companyLookups(contact.company)} />
               )}
@@ -289,18 +297,18 @@ export default function ContactDetailPage() {
             </section>
           )}
 
-          <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Log a note</h2>
+          <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Log a note", "Anteckna")}</h2>
             <textarea
               rows={3}
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Quick note, call summary…"
+              placeholder={t("Quick note, call summary…", "Snabb anteckning, samtalssammanfattning…")}
               className={cn(inputClass, "h-auto resize-none py-2")}
             />
             <div className="mt-2 flex justify-end">
               <Button size="sm" onClick={addNote} disabled={!note.trim()}>
-                Add note
+                {t("Add note", "Spara anteckning")}
               </Button>
             </div>
           </section>
@@ -317,6 +325,7 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
   const markDraftSent = useCRM((s) => s.markDraftSent);
   const discardDraft = useCRM((s) => s.discardDraft);
   const toast = useUI((s) => s.toast);
+  const t = useT();
 
   const draft = contact.emailDraft;
   const campaign = campaigns.find((c) => c.id === contact.campaignId);
@@ -324,15 +333,15 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
   const usingDefault = templates.length === 0;
   const pickable = templates.length ? templates : [DEFAULT_EMAIL_TEMPLATE];
   const [templateId, setTemplateId] = useState(pickable[0]?.id);
-  const selectedId = pickable.some((t) => t.id === templateId) ? templateId : pickable[0]?.id;
+  const selectedId = pickable.some((tpl) => tpl.id === templateId) ? templateId : pickable[0]?.id;
 
   const copy = async () => {
     if (!draft) return;
     try {
-      await navigator.clipboard.writeText(`Subject: ${draft.subject}\n\n${draft.body}`);
-      toast("Draft copied to clipboard");
+      await navigator.clipboard.writeText(`${t("Subject", "Ämne")}: ${draft.subject}\n\n${draft.body}`);
+      toast(t("Draft copied to clipboard", "Utkast kopierat"));
     } catch {
-      toast("Couldn't copy — select and copy manually");
+      toast(t("Couldn't copy — select and copy manually", "Kunde inte kopiera — markera och kopiera manuellt"));
     }
   };
 
@@ -343,7 +352,7 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
       draft.subject
     )}&body=${encodeURIComponent(draft.body)}`;
     markDraftSent(contact.id);
-    toast("Opening your email app — marked as sent");
+    toast(t("Opening your email app — marked as sent", "Öppnar din e-postapp — markerat som skickat"));
   };
 
   const picker =
@@ -351,12 +360,12 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
       <select
         value={selectedId}
         onChange={(e) => setTemplateId(e.target.value)}
-        title="Template"
+        title={t("Template", "Mall")}
         className={cn(inputClass, "h-8 w-auto max-w-[170px] text-xs")}
       >
-        {pickable.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
+        {pickable.map((tpl) => (
+          <option key={tpl.id} value={tpl.id}>
+            {tpl.name}
           </option>
         ))}
       </select>
@@ -365,24 +374,24 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
   // Empty state — pick a template and draft.
   if (!draft) {
     return (
-      <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">Intro email</h2>
+      <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">{t("Intro email", "Intromejl")}</h2>
         <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center">
           <Mail className="h-5 w-5 text-zinc-300" />
           <p className="text-sm text-zinc-500">
-            Draft a personalised intro for{" "}
-            <span className="font-medium text-zinc-700">{campaign?.name ?? "this contact"}</span>
-            {usingDefault ? " (using the default template)" : ""}.
+            {t("Draft a personalised intro for", "Skapa ett personligt intro till")}{" "}
+            <span className="font-medium text-zinc-700">{campaign?.name ?? t("this contact", "den här kontakten")}</span>
+            {usingDefault ? t(" (using the default template)", " (med standardmallen)") : ""}.
           </p>
           <div className="flex items-center gap-2">
             {picker}
             <Button size="sm" onClick={() => generateDraft(contact.id, selectedId)}>
               <Mail className="h-4 w-4" />
-              Draft intro
+              {t("Draft intro", "Skapa intro")}
             </Button>
           </div>
           {!contact.email && (
-            <p className="text-xs text-amber-600">No email on file yet — draft now, add the address before sending.</p>
+            <p className="text-xs text-amber-600">{t("No email on file yet — draft now, add the address before sending.", "Ingen e-post angiven än — skapa nu, lägg till adressen innan du skickar.")}</p>
           )}
         </div>
       </section>
@@ -392,32 +401,32 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
   const sent = draft.status === "sent";
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+    <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          Intro email
+          {t("Intro email", "Intromejl")}
           {sent ? (
             <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-600">
-              Sent · {formatActivityTime(draft.updatedAt)}
+              {t("Sent", "Skickat")} · {formatActivityTime(draft.updatedAt)}
             </span>
           ) : (
-            <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">Draft</span>
+            <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-semibold text-brand-600">{t("Draft", "Utkast")}</span>
           )}
         </h2>
-        <span className="truncate text-[11px] text-zinc-400">from {draft.templateName ?? "default"}</span>
+        <span className="truncate text-[11px] text-zinc-400">{t("from", "från")} {draft.templateName ?? t("default", "standard")}</span>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center gap-2 text-sm">
-          <span className="w-14 shrink-0 text-xs text-zinc-400">To</span>
+          <span className="w-14 shrink-0 text-xs text-zinc-400">{t("To", "Till")}</span>
           {contact.email ? (
             <span className="truncate font-medium text-zinc-700">{contact.email}</span>
           ) : (
-            <span className="text-xs text-amber-600">No email yet — add one to send.</span>
+            <span className="text-xs text-amber-600">{t("No email yet — add one to send.", "Ingen e-post än — lägg till en för att skicka.")}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="w-14 shrink-0 text-xs text-zinc-400">Subject</span>
+          <span className="w-14 shrink-0 text-xs text-zinc-400">{t("Subject", "Ämne")}</span>
           <input
             value={draft.subject}
             disabled={sent}
@@ -438,34 +447,34 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Button variant="secondary" size="sm" onClick={copy}>
             <Copy className="h-3.5 w-3.5 text-zinc-400" />
-            Copy
+            {t("Copy", "Kopiera")}
           </Button>
           {!sent && (
             <>
               {picker}
               <button
                 onClick={() => {
-                  if (confirm("Replace this draft with a fresh one from the selected template? Your edits will be lost.")) {
+                  if (confirm(t("Replace this draft with a fresh one from the selected template? Your edits will be lost.", "Ersätt det här utkastet med ett nytt från vald mall? Dina ändringar försvinner."))) {
                     generateDraft(contact.id, selectedId);
-                    toast("Draft regenerated");
+                    toast(t("Draft regenerated", "Utkast återskapat"));
                   }
                 }}
-                title="Regenerate from the selected template"
+                title={t("Regenerate from the selected template", "Återskapa från vald mall")}
                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
-                Regenerate
+                {t("Regenerate", "Återskapa")}
               </button>
             </>
           )}
           <button
             onClick={() => {
               discardDraft(contact.id);
-              toast(sent ? "Draft cleared" : "Draft discarded");
+              toast(sent ? t("Draft cleared", "Utkast rensat") : t("Draft discarded", "Utkast slängt"));
             }}
             className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
           >
-            {sent ? "Clear" : "Discard"}
+            {sent ? t("Clear", "Rensa") : t("Discard", "Släng")}
           </button>
         </div>
         {!sent && (
@@ -473,20 +482,315 @@ function IntroEmailCard({ contact }: { contact: Contact }) {
             <button
               onClick={() => {
                 markDraftSent(contact.id);
-                toast("Marked as sent — follow-up queued in 3 days");
+                toast(t("Marked as sent — follow-up queued in 3 days", "Markerat som skickat — uppföljning om 3 dagar"));
               }}
               className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700"
             >
-              Mark sent
+              {t("Mark sent", "Markera skickat")}
             </button>
             <Button size="sm" onClick={send} disabled={!contact.email}>
               <Send className="h-3.5 w-3.5" />
-              Send
+              {t("Send", "Skicka")}
             </Button>
           </div>
         )}
       </div>
     </section>
+  );
+}
+
+function CallCard({ contact }: { contact: Contact }) {
+  const campaigns = useCRM((s) => s.campaigns);
+  const setCallScript = useCRM((s) => s.setCallScript);
+  const updateCallScript = useCRM((s) => s.updateCallScript);
+  const discardCallScript = useCRM((s) => s.discardCallScript);
+  const addCallRecord = useCRM((s) => s.addCallRecord);
+  const toast = useUI((s) => s.toast);
+  const locale = useLocale((s) => s.locale);
+  const t = useT();
+
+  const [config, setConfig] = useState<{ llm: boolean; cloudtalk: boolean; authRequired?: boolean } | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [calling, setCalling] = useState(false);
+
+  // Learn which server-side features are configured (secrets are server-only).
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/call/config")
+      .then((r) => r.json())
+      .then((d) => alive && setConfig({ llm: !!d.llm, cloudtalk: !!d.cloudtalk, authRequired: !!d.authRequired }))
+      .catch(() => alive && setConfig({ llm: false, cloudtalk: false }));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const campaign = campaigns.find((c) => c.id === contact.campaignId);
+  const script = contact.callScript;
+  const phones = contact.phones?.length ? contact.phones : contact.phone ? [contact.phone] : [];
+  const [callNumber, setCallNumber] = useState(phones[0] ?? "");
+  const selectedNumber = phones.includes(callNumber) ? callNumber : phones[0] ?? "";
+
+  const generate = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch("/api/call/script", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contact,
+          campaign: campaign
+            ? { name: campaign.name, description: campaign.description, targetICP: campaign.targetICP }
+            : undefined,
+          lang: locale,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.text) {
+        setCallScript(contact.id, {
+          text: data.text,
+          generatedAt: new Date().toISOString(),
+          model: data.model || "",
+          lang: locale,
+        });
+        toast(t("Call script generated", "Samtalsmanus skapat"));
+      } else if (res.status === 503) {
+        toast(t("Set ANTHROPIC_API_KEY to generate scripts", "Ange ANTHROPIC_API_KEY för att skapa manus"));
+      } else {
+        toast(t("Couldn't generate the script", "Kunde inte skapa manuset"));
+      }
+    } catch {
+      toast(t("Couldn't generate the script", "Kunde inte skapa manuset"));
+    }
+    setGenerating(false);
+  };
+
+  const copy = async () => {
+    if (!script) return;
+    try {
+      await navigator.clipboard.writeText(script.text);
+      toast(t("Script copied", "Manus kopierat"));
+    } catch {
+      toast(t("Couldn't copy — select and copy manually", "Kunde inte kopiera — markera och kopiera manuellt"));
+    }
+  };
+
+  const call = async () => {
+    if (!selectedNumber) return;
+    setCalling(true);
+    try {
+      const res = await fetch("/api/call/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ number: selectedNumber }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        addCallRecord(contact.id, { cloudtalkCallId: data.cloudtalkCallId });
+        toast(t("Calling via CloudTalk — answer your phone", "Ringer via CloudTalk — svara i din telefon"));
+      } else {
+        toast(t("CloudTalk couldn't place the call", "CloudTalk kunde inte ringa upp"));
+      }
+    } catch {
+      toast(t("CloudTalk couldn't place the call", "CloudTalk kunde inte ringa upp"));
+    }
+    setCalling(false);
+  };
+
+  const callButton =
+    config?.cloudtalk && phones.length > 0 ? (
+      <div className="flex items-center gap-2">
+        {phones.length > 1 && (
+          <select
+            value={selectedNumber}
+            onChange={(e) => setCallNumber(e.target.value)}
+            className={cn(inputClass, "h-8 w-auto max-w-[150px] text-xs")}
+            title={t("Number to dial", "Nummer att ringa")}
+          >
+            {phones.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        )}
+        <Button size="sm" onClick={call} disabled={calling}>
+          <PhoneCall className="h-3.5 w-3.5" />
+          {calling ? t("Calling…", "Ringer…") : t("Call via CloudTalk", "Ring via CloudTalk")}
+        </Button>
+      </div>
+    ) : null;
+
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-surface p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+          <Phone className="h-3.5 w-3.5" />
+          {t("Cold call", "Kallt samtal")}
+        </h2>
+        {script && callButton}
+      </div>
+
+      {!script ? (
+        <div className="flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-zinc-300 px-4 py-5 text-center">
+          <Phone className="h-5 w-5 text-zinc-300" />
+          <p className="text-sm text-zinc-500">
+            {t("Generate a call script tailored to", "Skapa ett samtalsmanus anpassat för")}{" "}
+            <span className="font-medium text-zinc-700">{fullName(contact)}</span>
+            {contact.title ? ` (${contact.title})` : ""}.
+          </p>
+          {config?.authRequired ? (
+            <p className="text-xs text-amber-600">
+              {t(
+                "AI and calling stay off until the login gate is set — add APP_PASSWORD and AUTH_SECRET, then sign in.",
+                "AI och samtal är avstängda tills inloggningen är satt — lägg till APP_PASSWORD och AUTH_SECRET och logga in."
+              )}
+            </p>
+          ) : config && !config.llm ? (
+            <p className="text-xs text-amber-600">
+              {t("Set ANTHROPIC_API_KEY on the server to generate scripts.", "Ange ANTHROPIC_API_KEY på servern för att skapa manus.")}
+            </p>
+          ) : (
+            <Button size="sm" onClick={generate} disabled={generating}>
+              <FileText className="h-4 w-4" />
+              {generating ? t("Generating…", "Skapar…") : t("Generate script", "Skapa manus")}
+            </Button>
+          )}
+          {config?.cloudtalk && phones.length > 0 && <div className="pt-1">{callButton}</div>}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <textarea
+            rows={12}
+            value={script.text}
+            onChange={(e) => updateCallScript(contact.id, e.target.value)}
+            className={cn(inputClass, "h-auto resize-none py-2 font-mono text-[13px] leading-relaxed")}
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button variant="secondary" size="sm" onClick={copy}>
+              <Copy className="h-3.5 w-3.5 text-zinc-400" />
+              {t("Copy", "Kopiera")}
+            </Button>
+            <button
+              onClick={generate}
+              disabled={generating}
+              title={t("Regenerate the script", "Återskapa manuset")}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              {generating ? t("Generating…", "Skapar…") : t("Regenerate", "Återskapa")}
+            </button>
+            <button
+              onClick={() => {
+                discardCallScript(contact.id);
+                toast(t("Script discarded", "Manus slängt"));
+              }}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+            >
+              {t("Discard", "Släng")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <CallHistory calls={contact.calls ?? []} />
+    </section>
+  );
+}
+
+const SENTIMENT_DOT: Record<NonNullable<CallRecord["sentiment"]>, string> = {
+  positive: "bg-emerald-500",
+  neutral: "bg-zinc-400",
+  negative: "bg-rose-500",
+};
+
+function CallHistory({ calls }: { calls: CallRecord[] }) {
+  const t = useT();
+  if (calls.length === 0) return null;
+  return (
+    <div className="mt-4 border-t border-zinc-100 pt-3">
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        {t("Call history", "Samtalshistorik")} ({calls.length})
+      </h3>
+      <div className="space-y-2">
+        {calls.map((c) => (
+          <CallRow key={c.id} call={c} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CallRow({ call }: { call: CallRecord }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const when = new Date(call.startedAt).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  const duration =
+    call.durationSecs != null
+      ? `${Math.floor(call.durationSecs / 60)}m ${call.durationSecs % 60}s`
+      : null;
+  const pending = call.status === "initiated";
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs text-zinc-600">
+          {call.sentiment && <span className={cn("h-2 w-2 rounded-full", SENTIMENT_DOT[call.sentiment])} />}
+          <span className="font-medium text-zinc-700">{when}</span>
+          {duration && <span className="text-zinc-400">· {duration}</span>}
+          {pending && (
+            <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600">
+              {t("Awaiting transcript", "Inväntar transkript")}
+            </span>
+          )}
+        </div>
+        {call.recordingUrl && (
+          <a
+            href={call.recordingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-brand-600 hover:underline"
+          >
+            {t("Recording", "Inspelning")}
+          </a>
+        )}
+      </div>
+
+      {call.summary && <p className="mt-2 text-sm text-zinc-700">{call.summary}</p>}
+
+      {call.takeaways && call.takeaways.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {call.takeaways.map((tk, i) => (
+            <li key={i} className="flex gap-1.5 text-xs text-zinc-600">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-zinc-400" />
+              {tk}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {call.transcript && (
+        <div className="mt-2">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-700"
+          >
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+            {open ? t("Hide transcript", "Dölj transkript") : t("Show transcript", "Visa transkript")}
+          </button>
+          {open && (
+            <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-md bg-surface p-2.5 text-xs leading-relaxed text-zinc-600">
+              {call.transcript}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -511,9 +815,10 @@ function Detail({ label, value, href }: { label: string; value?: string; href?: 
 }
 
 function PhonesDetail({ phones }: { phones: string[] }) {
+  const t = useT();
   return (
     <div className="flex items-start justify-between gap-3">
-      <dt className="text-zinc-400">{phones.length > 1 ? "Phones" : "Phone"}</dt>
+      <dt className="text-zinc-400">{phones.length > 1 ? t("Phones", "Telefon") : t("Phone", "Telefon")}</dt>
       {phones.length === 0 ? (
         <dd className="text-right font-medium text-zinc-700">—</dd>
       ) : (
@@ -560,8 +865,9 @@ function LookupRow({
 }
 
 function Timeline({ activities }: { activities: Activity[] }) {
+  const t = useT();
   if (activities.length === 0) {
-    return <p className="text-sm text-zinc-400">No activity yet.</p>;
+    return <p className="text-sm text-zinc-400">{t("No activity yet.", "Ingen aktivitet än.")}</p>;
   }
   return (
     <ol className="relative space-y-4 before:absolute before:left-[11px] before:top-1 before:bottom-1 before:w-px before:bg-zinc-100">
@@ -569,7 +875,7 @@ function Timeline({ activities }: { activities: Activity[] }) {
         const Icon = ACTIVITY_ICON[a.type];
         return (
           <li key={a.id} className="relative flex gap-3">
-            <div className="z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-400">
+            <div className="z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-zinc-200 bg-surface text-zinc-400">
               <Icon className="h-3.5 w-3.5" />
             </div>
             <div className="min-w-0 flex-1 pt-0.5">

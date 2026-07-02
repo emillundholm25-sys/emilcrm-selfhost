@@ -6,6 +6,7 @@ import { CalendarPlus, Check, Pencil, Star } from "lucide-react";
 import { Contact, fullName } from "@/lib/types";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT } from "@/lib/i18n";
 import { cn, dateOffset, dueLabel } from "@/lib/utils";
 import { Avatar, DueBadge, StageBadge } from "./ui";
 
@@ -15,11 +16,12 @@ export function ActionRow({ contact }: { contact: Contact }) {
   const toggleStar = useCRM((s) => s.toggleStar);
   const openModal = useUI((s) => s.openModal);
   const toast = useUI((s) => s.toast);
+  const t = useT();
   const [done, setDone] = useState(false);
 
   const complete = () => {
     setDone(true);
-    toast("Action completed — what's next?");
+    toast(t("Action completed — what's next?", "Åtgärd klar — vad är nästa?"));
     // Let the strike-through play, then commit and prompt for the next move (GTD loop).
     setTimeout(() => {
       completeNextAction(contact.id);
@@ -40,7 +42,7 @@ export function ActionRow({ contact }: { contact: Contact }) {
           e.stopPropagation();
           complete();
         }}
-        title="Mark complete"
+        title={t("Mark complete", "Markera klar")}
         className={cn(
           "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
           done
@@ -76,7 +78,7 @@ export function ActionRow({ contact }: { contact: Contact }) {
             e.stopPropagation();
             openModal({ kind: "next-action", contactId: contact.id });
           }}
-          title="Edit action"
+          title={t("Edit action", "Redigera åtgärd")}
           className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200/70 hover:text-zinc-700"
         >
           <Pencil className="h-4 w-4" />
@@ -86,7 +88,7 @@ export function ActionRow({ contact }: { contact: Contact }) {
             e.stopPropagation();
             openModal({ kind: "book-meeting", contactId: contact.id });
           }}
-          title="Book meeting"
+          title={t("Book meeting", "Boka möte")}
           className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200/70 hover:text-brand-600"
         >
           <CalendarPlus className="h-4 w-4" />
@@ -96,7 +98,7 @@ export function ActionRow({ contact }: { contact: Contact }) {
             e.stopPropagation();
             toggleStar(contact.id);
           }}
-          title="Star"
+          title={t("Star", "Stjärnmärk")}
           className="rounded-md p-1.5 text-zinc-400 hover:bg-zinc-200/70 hover:text-amber-500"
         >
           <Star className={cn("h-4 w-4", contact.starred && "fill-amber-400 text-amber-400")} />
@@ -110,6 +112,7 @@ export function ActionRow({ contact }: { contact: Contact }) {
 function RescheduleControl({ contact }: { contact: Contact }) {
   const updateContact = useCRM((s) => s.updateContact);
   const toast = useUI((s) => s.toast);
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -141,14 +144,14 @@ function RescheduleControl({ contact }: { contact: Contact }) {
   const set = (date?: string) => {
     updateContact(contact.id, { nextActionDate: date });
     setOpen(false);
-    toast(date ? "Due date updated" : "Moved to Asap");
+    toast(date ? t("Due date updated", "Datum uppdaterat") : t("Moved to Asap", "Flyttad till Snarast"));
   };
 
   const quick: Array<{ label: string; days: number }> = [
-    { label: "Today", days: 0 },
-    { label: "Tomorrow", days: 1 },
-    { label: "In 3 days", days: 3 },
-    { label: "Next week", days: 7 },
+    { label: t("Today", "Idag"), days: 0 },
+    { label: t("Tomorrow", "Imorgon"), days: 1 },
+    { label: t("In 3 days", "Om 3 dagar"), days: 3 },
+    { label: t("Next week", "Nästa vecka"), days: 7 },
   ];
 
   return (
@@ -156,7 +159,7 @@ function RescheduleControl({ contact }: { contact: Contact }) {
       <button
         ref={btnRef}
         onClick={toggle}
-        title="Reschedule"
+        title={t("Reschedule", "Boka om")}
         className="rounded-md transition-transform hover:scale-[1.04] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
       >
         <DueBadge date={contact.nextActionDate} label={dueLabel(contact.nextActionDate)} />
@@ -164,9 +167,9 @@ function RescheduleControl({ contact }: { contact: Contact }) {
       {open && (
         <div
           style={{ position: "fixed", top: pos.top, left: pos.left }}
-          className="z-50 w-44 rounded-lg border border-zinc-200 bg-white p-1 shadow-lg"
+          className="z-50 w-44 rounded-lg border border-zinc-200 bg-surface p-1 shadow-lg"
         >
-          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">Reschedule</div>
+          <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-400">{t("Reschedule", "Boka om")}</div>
           {quick.map((q) => (
             <button
               key={q.label}
@@ -177,7 +180,7 @@ function RescheduleControl({ contact }: { contact: Contact }) {
             </button>
           ))}
           <label className="mt-0.5 flex cursor-pointer items-center justify-between gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100">
-            <span>Pick a date</span>
+            <span>{t("Pick a date", "Välj datum")}</span>
             <input
               type="date"
               defaultValue={contact.nextActionDate ?? ""}
@@ -189,7 +192,7 @@ function RescheduleControl({ contact }: { contact: Contact }) {
             onClick={() => set(undefined)}
             className="mt-0.5 flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs font-medium text-zinc-500 hover:bg-zinc-100"
           >
-            Asap · no date
+            {t("Asap · no date", "Snarast · inget datum")}
           </button>
         </div>
       )}

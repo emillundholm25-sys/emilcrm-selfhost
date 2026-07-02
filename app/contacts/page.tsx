@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarPlus, Plus, Search, Star } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT, STAGE_LABEL_SV } from "@/lib/i18n";
 import { Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
 import { cn, dueLabel, formatCurrency, matchesCampaign } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -15,6 +16,7 @@ export default function ContactsPage() {
   const toggleStar = useCRM((s) => s.toggleStar);
   const openModal = useUI((s) => s.openModal);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
+  const t = useT();
   const router = useRouter();
 
   const [query, setQuery] = useState("");
@@ -44,34 +46,34 @@ export default function ContactsPage() {
   return (
     <>
       <PageHeader
-        title="Contacts"
-        subtitle={`${contacts.length} in your book`}
+        title={t("Contacts", "Kontakter")}
+        subtitle={t(`${contacts.length} in your book`, `${contacts.length} i din bok`)}
         actions={
           <Button onClick={() => openModal({ kind: "add-contact" })}>
             <Plus className="h-4 w-4" />
-            Add contact
+            {t("Add contact", "Lägg till kontakt")}
           </Button>
         }
       />
 
-      <div className="border-b border-zinc-200 bg-white px-7 py-3">
+      <div className="border-b border-zinc-200 bg-surface px-7 py-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-full max-w-xs">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
               className={cn(inputClass, "pl-9")}
-              placeholder="Search name, company, tag…"
+              placeholder={t("Search name, company, tag…", "Sök namn, företag, tagg…")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <FilterPill active={stageFilter === "all"} onClick={() => setStageFilter("all")}>
-              All
+              {t("All", "Alla")}
             </FilterPill>
             {STAGES.map((s) => (
               <FilterPill key={s} active={stageFilter === s} onClick={() => setStageFilter(s)}>
-                {STAGE_META[s].label}
+                {t(STAGE_META[s].label, STAGE_LABEL_SV[s])}
               </FilterPill>
             ))}
           </div>
@@ -80,9 +82,9 @@ export default function ContactsPage() {
 
       <div className="flex-1 overflow-y-auto px-7 py-5">
         {filtered.length === 0 ? (
-          <p className="py-16 text-center text-sm text-zinc-400">No contacts match your filters.</p>
+          <p className="py-16 text-center text-sm text-zinc-400">{t("No contacts match your filters.", "Inga kontakter matchar dina filter.")}</p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
+          <div className="overflow-hidden rounded-xl border border-zinc-200 bg-surface shadow-sm">
             <div className="divide-y divide-zinc-100">
               {filtered.map((c) => (
                 <div
@@ -119,7 +121,7 @@ export default function ContactsPage() {
                         <span className="truncate text-xs text-zinc-500">{c.nextAction}</span>
                       </div>
                     ) : (
-                      <span className="text-xs italic text-zinc-300">No next action</span>
+                      <span className="text-xs italic text-zinc-300">{t("No next action", "Ingen nästa åtgärd")}</span>
                     )}
                   </div>
 
@@ -134,7 +136,7 @@ export default function ContactsPage() {
                       e.stopPropagation();
                       openModal({ kind: "book-meeting", contactId: c.id });
                     }}
-                    title="Book meeting"
+                    title={t("Book meeting", "Boka möte")}
                     className="shrink-0 rounded-md p-1.5 text-zinc-400 opacity-0 transition-opacity hover:bg-zinc-200/70 hover:text-brand-600 group-hover:opacity-100"
                   >
                     <CalendarPlus className="h-4 w-4" />

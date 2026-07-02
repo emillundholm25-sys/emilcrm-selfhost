@@ -43,5 +43,4 @@ next-env.d.ts
 # packaged Cowork plugin (build artifact — source lives in cowork-plugin/)
 *.plugin
 
-# keep the env template (the .env* rule above hides it otherwise)
 !.env.example

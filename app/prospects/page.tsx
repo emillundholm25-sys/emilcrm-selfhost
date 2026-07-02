@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { Sparkles, Target, Plus, X, ExternalLink, Search, Copy } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT } from "@/lib/i18n";
 import { ICPFacet, fullName } from "@/lib/types";
 import { SearchRecipe, buildSearchRecipe, campaignICPToProfile, computeICP, scoreProspect } from "@/lib/icp";
 import { cn, formatCurrency, matchesCampaign } from "@/lib/utils";
@@ -25,6 +26,7 @@ export default function ProspectsPage() {
   const openModal = useUI((s) => s.openModal);
   const toast = useUI((s) => s.toast);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
+  const t = useT();
 
   const activeCampaign = campaigns.find((c) => c.id === activeCampaignId);
   const usingTarget = !!activeCampaign?.targetICP;
@@ -54,12 +56,15 @@ export default function ProspectsPage() {
   return (
     <>
       <PageHeader
-        title="Prospects"
-        subtitle="Find lookalikes of your best contacts, then work them into the pipeline"
+        title={t("Prospects", "Prospekt")}
+        subtitle={t(
+          "Find lookalikes of your best contacts, then work them into the pipeline",
+          "Hitta liknande personer som dina bästa kontakter och jobba in dem i pipelinen"
+        )}
         actions={
           <Button onClick={() => openModal({ kind: "import-prospect" })}>
             <Sparkles className="h-4 w-4" />
-            Import from Apollo
+            {t("Import from Apollo", "Importera från Apollo")}
           </Button>
         }
       />
@@ -67,69 +72,73 @@ export default function ProspectsPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-6 py-6">
           {/* ICP summary */}
-          <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-zinc-200 bg-surface p-5 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                 <Target className="h-5 w-5" />
               </div>
               <div className="flex-1">
                 <h2 className="text-sm font-semibold text-zinc-900">
-                  Ideal Customer Profile{activeCampaign ? ` · ${activeCampaign.name}` : ""}
+                  {t("Ideal Customer Profile", "Idealkundsprofil")}{activeCampaign ? ` · ${activeCampaign.name}` : ""}
                 </h2>
                 <p className="text-xs text-zinc-500">
                   {usingTarget ? (
-                    <>Defined target for this campaign — edit it on the Campaigns page</>
+                    <>{t("Defined target for this campaign — edit it on the Campaigns page", "Definierad målgrupp för kampanjen — redigera den på Kampanjer-sidan")}</>
                   ) : (
                     <>
-                      Learned from {icp.sampleSize} contact{icp.sampleSize === 1 ? "" : "s"}, weighted toward
-                      your booked &amp; won deals
-                      {icp.avgValue > 0 && <> · avg value {formatCurrency(icp.avgValue)}</>}
+                      {t(
+                        `Learned from ${icp.sampleSize} contact${icp.sampleSize === 1 ? "" : "s"}, weighted toward your booked & won deals`,
+                        `Lärd från ${icp.sampleSize} ${icp.sampleSize === 1 ? "kontakt" : "kontakter"}, viktad mot dina bokade och vunna affärer`
+                      )}
+                      {icp.avgValue > 0 && <> · {t("avg value", "snittvärde")} {formatCurrency(icp.avgValue)}</>}
                     </>
                   )}
                 </p>
               </div>
             </div>
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FacetGroup label="Top industries" facets={icp.industries} />
-              <FacetGroup label="Company size" facets={icp.companySizes} suffix=" emp" />
-              <FacetGroup label="Locations" facets={icp.locations} />
-              <FacetGroup label="Common roles" facets={icp.titleKeywords} capitalize />
+              <FacetGroup label={t("Top industries", "Vanligaste branscher")} facets={icp.industries} />
+              <FacetGroup label={t("Company size", "Företagsstorlek")} facets={icp.companySizes} suffix={t(" emp", " anst")} />
+              <FacetGroup label={t("Locations", "Orter")} facets={icp.locations} />
+              <FacetGroup label={t("Common roles", "Vanliga roller")} facets={icp.titleKeywords} capitalize />
             </div>
           </section>
 
           {/* Search recipe — the real discovery driver */}
           <SearchRecipeCard
             recipe={recipe}
-            onCopied={() => toast("Filters copied")}
+            onCopied={() => toast(t("Filters copied", "Filter kopierade"))}
             onImport={() => openModal({ kind: "import-prospect" })}
           />
 
           {/* Candidate list */}
           <div className="mt-6 mb-2 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Lookalike candidates ({ranked.length})
+              {t(`Lookalike candidates (${ranked.length})`, `Liknande kandidater (${ranked.length})`)}
             </h2>
-            {addedCount > 0 && <span className="text-xs text-zinc-400">{addedCount} added to pipeline</span>}
+            {addedCount > 0 && <span className="text-xs text-zinc-400">{t(`${addedCount} added to pipeline`, `${addedCount} tillagda i pipelinen`)}</span>}
           </div>
           {hasSamples && (
             <p className="mb-3 text-xs text-zinc-400">
-              The starter set is sample companies to show how scoring works — real candidates come from your
-              Apollo searches above (or Claude-in-Chrome).
+              {t(
+                "The starter set is sample companies to show how scoring works — real candidates come from your Apollo searches above (or Claude-in-Chrome).",
+                "Startuppsättningen är exempelföretag som visar hur poängsättningen fungerar — riktiga kandidater kommer från dina Apollo-sökningar ovan (eller Claude-in-Chrome)."
+              )}
             </p>
           )}
 
           {ranked.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white py-14 text-center">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-surface py-14 text-center">
               <Search className="h-6 w-6 text-zinc-300" />
-              <h3 className="mt-3 text-sm font-semibold text-zinc-900">No candidates queued</h3>
+              <h3 className="mt-3 text-sm font-semibold text-zinc-900">{t("No candidates queued", "Inga kandidater i kö")}</h3>
               <p className="mt-1 max-w-sm text-sm text-zinc-500">
-                Run the search above in Apollo or LinkedIn, then <strong>Import</strong> the matches — or let
-                Claude-in-Chrome push them in with{" "}
+                {t("Run the search above in Apollo or LinkedIn, then", "Kör sökningen ovan i Apollo eller LinkedIn och")}{" "}
+                <strong>{t("Import", "importera")}</strong> {t("the matches — or let Claude-in-Chrome push them in with", "träffarna — eller låt Claude-in-Chrome lägga in dem med")}{" "}
                 <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs text-zinc-600">window.emilCRM.addProspect()</code>.
               </p>
               <Button className="mt-4" onClick={() => openModal({ kind: "import-prospect" })}>
                 <Sparkles className="h-4 w-4" />
-                Import a prospect
+                {t("Import a prospect", "Importera prospekt")}
               </Button>
             </div>
           ) : (
@@ -137,7 +146,7 @@ export default function ProspectsPage() {
               {ranked.map(({ prospect, score, reasons }) => (
                 <article
                   key={prospect.id}
-                  className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-3.5 shadow-sm transition-shadow hover:shadow-md"
+                  className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-surface p-3.5 shadow-sm transition-shadow hover:shadow-md"
                 >
                   <div
                     className={cn(
@@ -146,7 +155,7 @@ export default function ProspectsPage() {
                     )}
                   >
                     <span className="text-sm font-bold leading-none tabular-nums">{score}</span>
-                    <span className="text-[9px] font-medium uppercase tracking-wide opacity-70">match</span>
+                    <span className="text-[9px] font-medium uppercase tracking-wide opacity-70">{t("match", "match")}</span>
                   </div>
 
                   <Avatar contact={prospect} size="md" />
@@ -156,7 +165,7 @@ export default function ProspectsPage() {
                       <span className="truncate text-sm font-semibold text-zinc-900">{fullName(prospect)}</span>
                       {prospect.source === "sample" && (
                         <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-400">
-                          Sample
+                          {t("Sample", "Exempel")}
                         </span>
                       )}
                       {prospect.linkedinUrl && (
@@ -176,7 +185,7 @@ export default function ProspectsPage() {
                     </div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {prospect.industry && <Tag label={prospect.industry} />}
-                      {prospect.companySize && <Tag label={`${prospect.companySize} emp`} />}
+                      {prospect.companySize && <Tag label={`${prospect.companySize}${t(" emp", " anst")}`} />}
                       {prospect.location && <Tag label={prospect.location} />}
                     </div>
                     {reasons.length > 0 && (
@@ -189,15 +198,15 @@ export default function ProspectsPage() {
                       size="sm"
                       onClick={() => {
                         addProspectToPipeline(prospect.id);
-                        toast(`${fullName(prospect)} added to pipeline`);
+                        toast(t(`${fullName(prospect)} added to pipeline`, `${fullName(prospect)} tillagd i pipelinen`));
                       }}
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Add to pipeline
+                      {t("Add to pipeline", "Lägg till i pipeline")}
                     </Button>
                     <button
                       onClick={() => dismissProspect(prospect.id)}
-                      title="Dismiss"
+                      title={t("Dismiss", "Avfärda")}
                       className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600"
                     >
                       <X className="h-4 w-4" />
@@ -222,32 +231,38 @@ function SearchRecipeCard({
   onCopied: () => void;
   onImport: () => void;
 }) {
+  const t = useT();
   return (
     <section className="mt-4 rounded-xl border border-brand-200 bg-brand-50/40 p-5 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-brand-600 ring-1 ring-brand-200">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface text-brand-600 ring-1 ring-brand-200">
           <Search className="h-5 w-5" />
         </div>
         <div className="flex-1">
-          <h2 className="text-sm font-semibold text-zinc-900">Find more lookalikes</h2>
+          <h2 className="text-sm font-semibold text-zinc-900">{t("Find more lookalikes", "Hitta fler liknande")}</h2>
           <p className="text-xs text-zinc-500">
-            Run this search in Apollo or LinkedIn, then import the matches. The app derives the targeting; Apollo
-            does the finding.
+            {t(
+              "Run this search in Apollo or LinkedIn, then import the matches. The app derives the targeting; Apollo does the finding.",
+              "Kör den här sökningen i Apollo eller LinkedIn och importera träffarna. Appen tar fram målgruppen; Apollo gör sökningen."
+            )}
           </p>
         </div>
       </div>
 
       {!recipe.hasSignal ? (
         <p className="mt-4 text-sm text-zinc-500">
-          Add a few contacts and book some meetings first — once there&apos;s signal, a targeted search appears here.
+          {t(
+            "Add a few contacts and book some meetings first — once there's signal, a targeted search appears here.",
+            "Lägg till några kontakter och boka några möten först — när det finns signal dyker en riktad sökning upp här."
+          )}
         </p>
       ) : (
         <>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <RecipeRow label="Industry" values={recipe.industries} />
-            <RecipeRow label="Company size" values={recipe.sizes.map((s) => `${s} emp`)} />
-            <RecipeRow label="Location" values={recipe.locations} />
-            <RecipeRow label="Titles" values={recipe.titles} />
+            <RecipeRow label={t("Industry", "Bransch")} values={recipe.industries} />
+            <RecipeRow label={t("Company size", "Företagsstorlek")} values={recipe.sizes.map((s) => `${s}${t(" emp", " anst")}`)} />
+            <RecipeRow label={t("Location", "Ort")} values={recipe.locations} />
+            <RecipeRow label={t("Titles", "Titlar")} values={recipe.titles} />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -259,13 +274,13 @@ function SearchRecipeCard({
               }}
             >
               <Copy className="h-3.5 w-3.5" />
-              Copy filters
+              {t("Copy filters", "Kopiera filter")}
             </Button>
             <a
               href={recipe.apolloUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-surface px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
             >
               Apollo People Search
               <ExternalLink className="h-3 w-3 text-zinc-400" />
@@ -274,19 +289,19 @@ function SearchRecipeCard({
               href={recipe.linkedinUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-zinc-300 bg-surface px-2.5 text-xs font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
             >
-              LinkedIn search
+              {t("LinkedIn search", "LinkedIn-sökning")}
               <ExternalLink className="h-3 w-3 text-zinc-400" />
             </a>
             <Button size="sm" onClick={onImport}>
               <Sparkles className="h-3.5 w-3.5" />
-              Import results
+              {t("Import results", "Importera resultat")}
             </Button>
           </div>
           <p className="mt-2.5 text-xs text-zinc-400">
-            Or have Claude-in-Chrome run the search and push matches in with{" "}
-            <code className="rounded bg-white px-1 py-0.5 text-zinc-600">window.emilCRM.addProspect(&#123;…&#125;)</code>.
+            {t("Or have Claude-in-Chrome run the search and push matches in with", "Eller låt Claude-in-Chrome köra sökningen och lägga in träffar med")}{" "}
+            <code className="rounded bg-surface px-1 py-0.5 text-zinc-600">window.emilCRM.addProspect(&#123;…&#125;)</code>.
           </p>
         </>
       )}
@@ -303,7 +318,7 @@ function RecipeRow({ label, values }: { label: string; values: string[] }) {
         {values.map((v) => (
           <span
             key={v}
-            className="inline-flex items-center rounded-md border border-zinc-200 bg-white px-2 py-0.5 text-xs font-medium capitalize text-zinc-700"
+            className="inline-flex items-center rounded-md border border-zinc-200 bg-surface px-2 py-0.5 text-xs font-medium capitalize text-zinc-700"
           >
             {v}
           </span>
@@ -324,11 +339,12 @@ function FacetGroup({
   suffix?: string;
   capitalize?: boolean;
 }) {
+  const t = useT();
   return (
     <div>
       <div className="mb-1.5 text-xs font-medium text-zinc-400">{label}</div>
       {facets.length === 0 ? (
-        <span className="text-xs text-zinc-300">Not enough data</span>
+        <span className="text-xs text-zinc-300">{t("Not enough data", "För lite data")}</span>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {facets.map((f) => (

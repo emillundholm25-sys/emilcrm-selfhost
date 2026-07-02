@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { CalendarDays, CalendarPlus } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT } from "@/lib/i18n";
 import { Meeting } from "@/lib/types";
 import { formatMeetingDay, matchesCampaign } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -25,6 +26,7 @@ export default function MeetingsPage() {
   const contacts = useCRM((s) => s.contacts);
   const openModal = useUI((s) => s.openModal);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
+  const t = useT();
 
   const { upcoming, past, weekCount } = useMemo(() => {
     const now = Date.now();
@@ -46,12 +48,15 @@ export default function MeetingsPage() {
   return (
     <>
       <PageHeader
-        title="Meetings"
-        subtitle={`${upcoming.length} upcoming · ${weekCount} in the next 7 days`}
+        title={t("Meetings", "Möten")}
+        subtitle={t(
+          `${upcoming.length} upcoming · ${weekCount} in the next 7 days`,
+          `${upcoming.length} kommande · ${weekCount} inom 7 dagar`
+        )}
         actions={
           <Button onClick={() => openModal({ kind: "book-meeting" })}>
             <CalendarPlus className="h-4 w-4" />
-            Book meeting
+            {t("Book meeting", "Boka möte")}
           </Button>
         }
       />
@@ -59,26 +64,29 @@ export default function MeetingsPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl px-6 py-6">
           {upcoming.length === 0 && past.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-white py-20 text-center">
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-300 bg-surface py-20 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50">
                 <CalendarDays className="h-6 w-6 text-brand-600" />
               </div>
-              <h3 className="mt-4 text-base font-semibold text-zinc-900">No meetings yet</h3>
+              <h3 className="mt-4 text-base font-semibold text-zinc-900">{t("No meetings yet", "Inga möten än")}</h3>
               <p className="mt-1 max-w-xs text-sm text-zinc-500">
-                Book your first meeting and it'll show up here, grouped by day.
+                {t(
+                  "Book your first meeting and it'll show up here, grouped by day.",
+                  "Boka ditt första möte så dyker det upp här, grupperat per dag."
+                )}
               </p>
               <Button className="mt-4" onClick={() => openModal({ kind: "book-meeting" })}>
                 <CalendarPlus className="h-4 w-4" />
-                Book meeting
+                {t("Book meeting", "Boka möte")}
               </Button>
             </div>
           ) : (
             <div className="space-y-8">
               {upcoming.length > 0 && (
-                <DaySections title="Upcoming" days={groupByDay(upcoming)} />
+                <DaySections title={t("Upcoming", "Kommande")} days={groupByDay(upcoming)} />
               )}
               {past.length > 0 && (
-                <DaySections title="Past" days={groupByDay(past)} muted />
+                <DaySections title={t("Past", "Tidigare")} days={groupByDay(past)} muted />
               )}
             </div>
           )}
@@ -104,7 +112,7 @@ function DaySections({
         {days.map(([day, items]) => (
           <section
             key={day}
-            className={`overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm ${muted ? "opacity-80" : ""}`}
+            className={`overflow-hidden rounded-xl border border-zinc-200 bg-surface shadow-sm ${muted ? "opacity-80" : ""}`}
           >
             <div className="border-b border-zinc-100 px-4 py-2.5">
               <h3 className="text-sm font-semibold text-zinc-700">{day}</h3>

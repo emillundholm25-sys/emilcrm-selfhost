@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
+import { useT, STAGE_LABEL_SV } from "@/lib/i18n";
 import { Contact, Stage, STAGES, STAGE_META, fullName } from "@/lib/types";
 import { cn, dueLabel, formatCurrency, matchesCampaign } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -15,6 +16,7 @@ export default function PipelinePage() {
   const setStage = useCRM((s) => s.setStage);
   const openModal = useUI((s) => s.openModal);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
+  const t = useT();
   const router = useRouter();
   const [dragOver, setDragOver] = useState<Stage | null>(null);
 
@@ -54,11 +56,14 @@ export default function PipelinePage() {
     <>
       <PageHeader
         title="Pipeline"
-        subtitle={`${formatCurrency(openValue)} open · ${formatCurrency(wonValue)} won`}
+        subtitle={t(
+          `${formatCurrency(openValue)} open · ${formatCurrency(wonValue)} won`,
+          `${formatCurrency(openValue)} öppet · ${formatCurrency(wonValue)} vunnet`
+        )}
         actions={
           <Button onClick={() => openModal({ kind: "add-contact" })}>
             <Plus className="h-4 w-4" />
-            Add contact
+            {t("Add contact", "Lägg till kontakt")}
           </Button>
         }
       />
@@ -84,14 +89,14 @@ export default function PipelinePage() {
                   setDragOver(null);
                 }}
                 className={cn(
-                  "flex h-full w-72 shrink-0 flex-col rounded-xl border bg-white/60 transition-colors",
+                  "flex h-full w-72 shrink-0 flex-col rounded-xl border bg-surface/60 transition-colors",
                   dragOver === stage ? "border-brand-400 bg-brand-50/50" : "border-zinc-200"
                 )}
               >
                 <div className="flex items-center justify-between gap-2 border-b border-zinc-100 px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                    <h2 className="text-sm font-semibold text-zinc-700">{meta.label}</h2>
+                    <h2 className="text-sm font-semibold text-zinc-700">{t(meta.label, STAGE_LABEL_SV[stage])}</h2>
                     <span className="text-xs font-medium text-zinc-400">{items.length}</span>
                   </div>
                   {colValue > 0 && (
@@ -103,7 +108,7 @@ export default function PipelinePage() {
 
                 <div className="flex-1 space-y-2 overflow-y-auto p-2">
                   {items.length === 0 ? (
-                    <p className="px-1 py-6 text-center text-xs text-zinc-300">Drop contacts here</p>
+                    <p className="px-1 py-6 text-center text-xs text-zinc-300">{t("Drop contacts here", "Släpp kontakter här")}</p>
                   ) : (
                     items.map((c) => (
                       <article
@@ -111,7 +116,7 @@ export default function PipelinePage() {
                         draggable
                         onDragStart={(e) => e.dataTransfer.setData("text/plain", c.id)}
                         onClick={() => router.push(`/contacts/${c.id}`)}
-                        className="cursor-grab rounded-lg border border-zinc-200 bg-white p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
+                        className="cursor-grab rounded-lg border border-zinc-200 bg-surface p-2.5 shadow-sm transition-shadow hover:shadow-md active:cursor-grabbing"
                       >
                         <div className="flex items-center gap-2">
                           <Avatar contact={c} size="sm" />

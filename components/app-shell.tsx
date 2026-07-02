@@ -19,6 +19,8 @@ import {
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { SyncStatus as SyncStatusValue, useSync } from "@/lib/sync-store";
+import { useLocale, useT, initLocale } from "@/lib/i18n";
+import { initTheme } from "@/lib/theme";
 import { Contact } from "@/lib/types";
 import { campaignColorClasses, cn, dueBucket, matchesCampaign } from "@/lib/utils";
 import { ModalHost } from "./modals";
@@ -98,16 +100,45 @@ const SYNC_META: Record<
 /** Honest "Saved / Saving… / Not synced" indicator driven by the storage adapter. */
 function SyncStatus() {
   const status = useSync((s) => s.status);
+  const t = useT();
   if (status === "idle") return null;
   const m = SYNC_META[status];
+  const text: Record<Exclude<SyncStatusValue, "idle">, { label: string; tip: string }> = {
+    saving: { label: t("Saving…", "Sparar…"), tip: t("Sending your latest changes to the server.", "Skickar dina senaste ändringar till servern.") },
+    saved: { label: t("All changes saved", "Allt sparat"), tip: t("Everything is synced to your cloud database.", "Allt är synkat till din molndatabas.") },
+    error: { label: t("Not synced — retrying", "Inte synkat — försöker igen"), tip: t("Couldn't reach the server. Changes are safe on this device and will sync automatically when it's back.", "Kunde inte nå servern. Ändringarna är säkra på den här enheten och synkas automatiskt när den är tillbaka.") },
+    local: { label: t("Saved on this device", "Sparat på den här enheten"), tip: t("No cloud database is configured — data lives in this browser. Download a backup to be safe.", "Ingen molndatabas är konfigurerad — datan finns i den här webbläsaren. Ladda ner en backup för säkerhets skull.") },
+  };
   return (
-    <div className={cn("flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-medium", m.cls)} title={m.tip}>
+    <div className={cn("flex items-center gap-1.5 px-3 pb-1.5 text-[11px] font-medium", m.cls)} title={text[status].tip}>
       {m.spin ? (
         <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-zinc-300 border-t-zinc-500" />
       ) : (
         <span className={cn("h-2 w-2 rounded-full", m.dot)} />
       )}
-      {m.label}
+      {text[status].label}
+    </div>
+  );
+}
+
+/** SV | EN language switch shown in the sidebar. */
+function LangToggle() {
+  const locale = useLocale((s) => s.locale);
+  const setLocale = useLocale((s) => s.setLocale);
+  return (
+    <div className="mb-1 inline-flex overflow-hidden rounded-md border border-zinc-200 text-[11px] font-semibold">
+      {(["sv", "en"] as const).map((l) => (
+        <button
+          key={l}
+          onClick={() => setLocale(l)}
+          className={cn(
+            "px-2 py-1 transition-colors",
+            locale === l ? "bg-brand-600 text-white" : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800"
+          )}
+        >
+          {l.toUpperCase()}
+        </button>
+      ))}
     </div>
   );
 }
@@ -121,6 +152,7 @@ function Sidebar() {
   const openModal = useUI((s) => s.openModal);
   const activeCampaignId = useUI((s) => s.activeCampaignId);
   const setActiveCampaign = useUI((s) => s.setActiveCampaign);
+  const t = useT();
 
   // Counts reflect the active campaign scope.
   const scopedContacts = contacts.filter((c) => matchesCampaign(activeCampaignId, c.campaignId));
@@ -167,14 +199,14 @@ function Sidebar() {
   }, []);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-white">
+    <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-surface">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
           <Zap className="h-[18px] w-[18px]" fill="currentColor" />
         </div>
         <div className="leading-tight">
           <div className="text-[15px] font-semibold tracking-tight text-zinc-900">EmilCRM</div>
-          <div className="text-[11px] text-zinc-400">Meeting pipeline</div>
+          <div className="text-[11px] text-zinc-400">{t("Meeting pipeline", "Mötespipeline")}</div>
         </div>
       </div>
 
@@ -192,10 +224,10 @@ function Sidebar() {
           <select
             value={activeCampaignId}
             onChange={(e) => setActiveCampaign(e.target.value)}
-            className="h-9 w-full appearance-none rounded-lg border border-zinc-300 bg-white pl-6 pr-7 text-sm font-medium text-zinc-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="h-9 w-full appearance-none rounded-lg border border-zinc-300 bg-surface pl-6 pr-7 text-sm font-medium text-zinc-800 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             aria-label="Active campaign"
           >
-            <option value="all">All campaigns</option>
+            <option value="all">{t("All campaigns", "Alla kampanjer")}</option>
             {activeCampaigns.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -212,28 +244,31 @@ function Sidebar() {
           className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700"
         >
           <Plus className="h-4 w-4" />
-          Add contact
+          {t("Add contact", "Lägg till kontakt")}
         </button>
         <button
           onClick={() => openModal({ kind: "import-prospect" })}
-          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-300 bg-surface px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
         >
           <Sparkles className="h-4 w-4 text-zinc-400" />
-          Import from Apollo
+          {t("Import from Apollo", "Importera från Apollo")}
         </button>
       </div>
 
       <nav className="mt-4 flex flex-col gap-0.5 px-3">
-        <NavItem href="/" label="Action Stream" icon={ListChecks} count={dueCount} accent active={pathname === "/"} />
-        <NavItem href="/contacts" label="Contacts" icon={Users} count={scopedContacts.length} active={pathname.startsWith("/contacts")} />
-        <NavItem href="/meetings" label="Meetings" icon={CalendarDays} count={upcoming} active={pathname.startsWith("/meetings")} />
-        <NavItem href="/pipeline" label="Pipeline" icon={Columns3} active={pathname.startsWith("/pipeline")} />
-        <NavItem href="/prospects" label="Prospects" icon={Target} count={suggestedCount} active={pathname.startsWith("/prospects")} />
-        <NavItem href="/campaigns" label="Campaigns" icon={Megaphone} count={activeCampaigns.length} active={pathname.startsWith("/campaigns")} />
+        <NavItem href="/" label={t("Action Stream", "Action Stream")} icon={ListChecks} count={dueCount} accent active={pathname === "/"} />
+        <NavItem href="/contacts" label={t("Contacts", "Kontakter")} icon={Users} count={scopedContacts.length} active={pathname.startsWith("/contacts")} />
+        <NavItem href="/meetings" label={t("Meetings", "Möten")} icon={CalendarDays} count={upcoming} active={pathname.startsWith("/meetings")} />
+        <NavItem href="/pipeline" label={t("Pipeline", "Pipeline")} icon={Columns3} active={pathname.startsWith("/pipeline")} />
+        <NavItem href="/prospects" label={t("Prospects", "Prospekt")} icon={Target} count={suggestedCount} active={pathname.startsWith("/prospects")} />
+        <NavItem href="/campaigns" label={t("Campaigns", "Kampanjer")} icon={Megaphone} count={activeCampaigns.length} active={pathname.startsWith("/campaigns")} />
       </nav>
 
       <div className="mt-auto border-t border-zinc-100 p-3">
         <SyncStatus />
+        <div className="px-3 pb-1.5">
+          <LangToggle />
+        </div>
         <Link
           href="/settings"
           className={cn(
@@ -244,7 +279,7 @@ function Sidebar() {
           )}
         >
           <Settings className="h-3.5 w-3.5" />
-          Settings
+          {t("Settings", "Inställningar")}
         </Link>
         {authEnabled && (
           <button
@@ -255,7 +290,7 @@ function Sidebar() {
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-50 hover:text-zinc-700"
           >
             <LogOut className="h-3.5 w-3.5" />
-            Log out
+            {t("Log out", "Logga ut")}
           </button>
         )}
       </div>
@@ -265,12 +300,13 @@ function Sidebar() {
 
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const hasHydrated = useCRM((s) => s.hasHydrated);
+  const t = useT();
   if (!hasHydrated) {
     return (
       <div className="flex h-full flex-1 items-center justify-center">
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-200 border-t-brand-600" />
-          Loading EmilCRM…
+          {t("Loading EmilCRM…", "Laddar EmilCRM…")}
         </div>
       </div>
     );
@@ -334,6 +370,11 @@ function LicenseBoundary({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  // Resolve the saved/browser locale + theme on the client, after mount.
+  useEffect(() => {
+    initLocale();
+    initTheme();
+  }, []);
   // The login screen renders standalone, without the CRM chrome or data gate.
   if (pathname === "/login") return <>{children}</>;
 

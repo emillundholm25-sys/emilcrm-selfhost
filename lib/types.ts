@@ -60,6 +60,33 @@ export interface EmailDraft {
   templateName?: string;
 }
 
+/** An AI-generated cold-call script for a contact, tailored to its campaign. */
+export interface CallScript {
+  text: string; // the full script, section-structured
+  generatedAt: string; // ISO datetime
+  model: string; // e.g. "claude-opus-4-8"
+  lang: "en" | "sv";
+}
+
+export type CallOutcome = "completed" | "no_answer" | "voicemail" | "failed";
+
+/** A logged phone call, optionally enriched with a recording + AI summary. */
+export interface CallRecord {
+  id: string;
+  cloudtalkCallId?: string; // CloudTalk's call id, for matching the webhook back to this record
+  direction: "outbound" | "inbound";
+  startedAt: string; // ISO datetime
+  durationSecs?: number;
+  outcome?: CallOutcome;
+  recordingUrl?: string;
+  transcript?: string;
+  summary?: string;
+  takeaways?: string[];
+  sentiment?: "positive" | "neutral" | "negative";
+  /** "initiated" = dialled, awaiting the webhook; "summarized" = transcript processed. */
+  status: "initiated" | "summarized";
+}
+
 export type MeetingType = "video" | "call" | "in_person";
 
 export const MEETING_TYPE_META: Record<MeetingType, { label: string }> = {
@@ -98,6 +125,10 @@ export interface Contact {
   value?: number;
   /** Personalised intro email, drafted from the campaign template. */
   emailDraft?: EmailDraft;
+  /** AI-generated cold-call script, tailored to the contact + campaign. */
+  callScript?: CallScript;
+  /** Logged calls (newest first), with transcripts + AI summaries from CloudTalk. */
+  calls?: CallRecord[];
   avatarColor: string;
   createdAt: string; // ISO datetime
 }

@@ -14,7 +14,11 @@ export async function proxy(req: NextRequest) {
   // The ingest + MCP APIs are for machine clients (the Cowork prospecting
   // plugin); they carry a bearer token, not the session cookie, and gate auth
   // themselves.
-  if (pathname.startsWith("/api/ingest") || pathname.startsWith("/api/mcp")) {
+  if (
+    pathname.startsWith("/api/ingest") ||
+    pathname.startsWith("/api/mcp") ||
+    pathname.startsWith("/api/cloudtalk")
+  ) {
     return NextResponse.next();
   }
 

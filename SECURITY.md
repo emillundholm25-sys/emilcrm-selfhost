@@ -7,7 +7,10 @@ CRM data lives in your own database. The maintainer has no access to it.
 
 - **Your data, your infra.** Contacts and pipeline live in your own Neon Postgres on your own Vercel project. No shared multi-tenant database.
 - **Auth.** Optional single-password gate; the session cookie is signed with your `AUTH_SECRET`. Enforced when `APP_PASSWORD` + `AUTH_SECRET` are set.
-- **Machine access.** The ingest/MCP prospecting endpoints require a separate bearer token (`INGEST_TOKEN`), distinct from the login password.
+- **Machine access.** The ingest/MCP prospecting endpoints require a separate bearer token (`INGEST_TOKEN`), distinct from the login password. The CloudTalk webhook requires its own shared secret.
+- **Paid endpoints stay off without auth.** The AI (Anthropic) and calling (CloudTalk) endpoints refuse all requests until the login gate is configured and the caller is signed in — an unauthenticated deploy can't have its API credits drained.
+- **Login throttling.** Failed sign-ins are rate-limited with a lockout. Note: the counter is per serverless instance, so it slows attacks rather than hard-capping them — use a strong password.
+- **Security headers.** Clickjacking/MIME-sniffing/downgrade protections (`X-Frame-Options`, `nosniff`, HSTS) are set on every response.
 - **Transport.** HTTPS (Vercel).
 - **Licensing.** Only the license key is sent to Lemon Squeezy to validate; no CRM data leaves your instance. The gate fails open on an outage so a paying user isn't locked out.
 - **Portability.** Full JSON backup/export anytime from Settings → Data & backup.
