@@ -26,6 +26,7 @@ import { campaignColorClasses, cn, dueBucket, matchesCampaign } from "@/lib/util
 import { ModalHost } from "./modals";
 import { Toasts } from "./toasts";
 import { LicenseGate } from "./license-gate";
+import { BrandMark } from "./brand-mark";
 
 function NavItem({
   href,
@@ -201,9 +202,7 @@ function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-surface">
       <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
-          <Zap className="h-[18px] w-[18px]" fill="currentColor" />
-        </div>
+        <BrandMark className="h-8 w-8" />
         <div className="leading-tight">
           <div className="text-[15px] font-semibold tracking-tight text-zinc-900">EmilCRM</div>
           <div className="text-[11px] text-zinc-400">{t("Meeting pipeline", "Mötespipeline")}</div>

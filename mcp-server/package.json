@@ -1,0 +1,39 @@
+{
+  "name": "emilcrm-mcp",
+  "version": "0.2.0",
+  "description": "MCP server for EmilCRM — connect any AI client (Claude Desktop, Claude Code, Cursor, Cowork) to your self-hosted EmilCRM instance for AI prospecting.",
+  "type": "module",
+  "bin": {
+    "emilcrm-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "emilcrm",
+    "crm",
+    "prospecting"
+  ],
+  "license": "SEE LICENSE IN ../EULA.md",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

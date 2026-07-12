@@ -1,5 +1,9 @@
 # EmilCRM Prospecting
 
+> **Using a client other than Cowork?** The [`emilcrm-mcp`](../mcp-server/README.md) server
+> gives Claude Desktop, Claude Code, Cursor and Windsurf the same EmilCRM tools over a single
+> `npx` command. This Cowork plugin remains the packaged path for Cowork specifically.
+
 Define a campaign's Ideal Customer Profile in EmilCRM, then let Claude run the whole outbound prospecting loop: **search and enrich with Apollo → dedupe → score → write prospects (and first-touch next actions) into the CRM.** You review and reach out; Claude does the sourcing.
 
 ## What's in the plugin

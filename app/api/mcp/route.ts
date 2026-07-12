@@ -1,6 +1,17 @@
 import { NextResponse } from "next/server";
 import { dbConfigured, readState, writeState } from "@/lib/db";
 import { DraftBody, IngestBody, applyDrafts, applyIngest, buildDigest, parseDoc } from "@/lib/ingest";
+import {
+  BookMeetingBody,
+  MoveStageBody,
+  applyBookMeeting,
+  applyMoveStage,
+  readCalls,
+  readPipeline,
+  setCallScript,
+} from "@/lib/pipeline";
+import { generateCallScript, llmEnabled } from "@/lib/llm";
+import { CallScript, Contact } from "@/lib/types";
 
 // Remote MCP endpoint for the Cowork "emilcrm-prospecting" plugin.
 //
@@ -9,10 +20,12 @@ import { DraftBody, IngestBody, applyDrafts, applyIngest, buildDigest, parseDoc 
 // shipped inside an installable `.plugin` file. This route is the remote
 // replacement: it speaks plain JSON-RPC 2.0 over a single stateless POST
 // endpoint (the "Streamable HTTP" transport, without the optional SSE
-// stream — every call is one request in, one JSON response out) and exposes
-// the exact same four tools the previous bundled stdio server exposed,
-// calling straight into the same `lib/ingest` logic that `/api/ingest` uses
-// (no internal HTTP hop).
+// stream — every call is one request in, one JSON response out). It exposes
+// the full EmilCRM tool surface — prospecting (add prospects/contacts, draft
+// intros, set next actions) plus pipeline ops (read pipeline, move stage, book
+// meeting, generate call script, read calls) — calling straight into the same
+// `lib/ingest` / `lib/pipeline` / `lib/llm` logic the app uses (no internal
+// HTTP hop). The standalone `emilcrm-mcp` bridge forwards to this endpoint.
 //
 //   POST /api/mcp   → initialize / ping / tools/list / tools/call
 //
@@ -134,6 +147,98 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: "emilcrm_get_pipeline",
+    description:
+      "Read the booking pipeline: contacts grouped by stage (to_contact → contacted → scheduling → booked → met → follow_up → won → lost), each with its next action, draft/call-script status and value. Use this to see who's where and what to work next. Optionally filter by campaignId and/or a single stage. Read-only.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        campaignId: { type: "string", description: "Only this campaign's contacts. Omit for all." },
+        stage: {
+          type: "string",
+          enum: ["to_contact", "contacted", "scheduling", "booked", "met", "follow_up", "won", "lost"],
+          description: "Only this stage. Omit for all stages.",
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "emilcrm_move_stage",
+    description:
+      "Move one or more contacts to a new pipeline stage (e.g. after a reply → 'scheduling', after a no → 'lost'). Logs a stage-change on each contact's timeline. Optionally set a next action at the same time. Get valid contact ids from emilcrm_get_pipeline or emilcrm_get_overview.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        moves: {
+          type: "array",
+          description: "Stage moves to apply.",
+          items: {
+            type: "object",
+            properties: {
+              contactId: { type: "string" },
+              stage: {
+                type: "string",
+                enum: ["to_contact", "contacted", "scheduling", "booked", "met", "follow_up", "won", "lost"],
+              },
+              nextAction: { type: "string", description: "Optional next action to queue on the contact." },
+              nextActionDate: { type: "string", description: "yyyy-mm-dd for the next action; omit for 'Asap'." },
+            },
+            required: ["contactId", "stage"],
+          },
+        },
+      },
+      required: ["moves"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "emilcrm_book_meeting",
+    description:
+      "Book a meeting with a contact and put it on the CRM's Meetings list. Advances the contact to the 'booked' stage if they're still early in the pipeline, and logs it on their timeline. This records the meeting in EmilCRM — it does NOT create a calendar event or send an invite (do that via a Calendar connector if the user wants one).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        contactId: { type: "string", description: "Who the meeting is with (id from emilcrm_get_pipeline)." },
+        start: { type: "string", description: "ISO datetime the meeting starts, e.g. 2026-07-15T14:00:00Z." },
+        durationMins: { type: "number", description: "Length in minutes. Default 30." },
+        type: { type: "string", enum: ["video", "call", "in_person"], description: "Default 'video'." },
+        title: { type: "string", description: "Meeting title. Defaults to 'Meeting with {name}'." },
+        location: { type: "string", description: "Video link, phone number, or address." },
+        notes: { type: "string", description: "Optional agenda / notes." },
+      },
+      required: ["contactId", "start"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "emilcrm_generate_call_script",
+    description:
+      "Generate an AI cold-call script tailored to a contact and their campaign, and save it on the contact (visible in the app's Call panel). Returns the script text. Requires ANTHROPIC_API_KEY on the server; returns an error telling the user to set it if absent. Uses the CRM's own Claude, so it works even in clients without their own model.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        contactId: { type: "string", description: "Who to write the script for (id from emilcrm_get_pipeline)." },
+        lang: { type: "string", enum: ["en", "sv"], description: "Script language. Default 'sv' (Swedish)." },
+      },
+      required: ["contactId"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "emilcrm_get_calls",
+    description:
+      "Read logged phone calls with their AI summaries, key takeaways, sentiment and transcripts — for one contact (contactId), a whole campaign (campaignId), or everything. Calls are captured via CloudTalk. Read-only. Use this to catch up on what was said before following up.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        contactId: { type: "string", description: "Only this contact's calls." },
+        campaignId: { type: "string", description: "Only this campaign's calls. Omit both for all calls." },
+      },
+      additionalProperties: false,
+    },
+  },
 ];
 
 async function callTool(name: string, args: Record<string, unknown>) {
@@ -183,6 +288,40 @@ async function callTool(name: string, args: Record<string, unknown>) {
     return { ok: true, report };
   }
 
+  if (name === "emilcrm_get_pipeline") {
+    return { ok: true, ...readPipeline(doc, { campaignId: args.campaignId as string | undefined, stage: args.stage as string | undefined }) };
+  }
+
+  if (name === "emilcrm_move_stage") {
+    const report = applyMoveStage(doc, { moves: args.moves as MoveStageBody["moves"] });
+    await writeState(JSON.stringify(doc));
+    return { ok: true, report };
+  }
+
+  if (name === "emilcrm_book_meeting") {
+    const report = applyBookMeeting(doc, args as unknown as BookMeetingBody);
+    await writeState(JSON.stringify(doc));
+    return { ok: true, ...report };
+  }
+
+  if (name === "emilcrm_generate_call_script") {
+    if (!llmEnabled()) throw new Error("AI is not configured on this instance. Set ANTHROPIC_API_KEY on the app and redeploy to generate call scripts.");
+    const contactId = args.contactId as string | undefined;
+    const contact = doc.state.contacts.find((c: Contact) => c.id === contactId);
+    if (!contact) throw new Error(`Contact ${contactId} not found. Call emilcrm_get_pipeline for valid ids.`);
+    const lang = args.lang === "en" ? "en" : "sv";
+    const campaign = doc.state.campaigns.find((cm) => cm.id === contact.campaignId);
+    const { text, model } = await generateCallScript({ contact, campaign, lang });
+    const script: CallScript = { text, model, lang, generatedAt: new Date().toISOString() };
+    const saved = setCallScript(doc, contact.id, script);
+    await writeState(JSON.stringify(doc));
+    return { ok: true, ...saved, lang, model, script: text };
+  }
+
+  if (name === "emilcrm_get_calls") {
+    return { ok: true, ...readCalls(doc, { contactId: args.contactId as string | undefined, campaignId: args.campaignId as string | undefined }) };
+  }
+
   throw new Error(`Unknown tool: ${name}`);
 }
 
@@ -217,7 +356,7 @@ export async function POST(req: Request) {
     return rpcResult(id, {
       protocolVersion: params?.protocolVersion || "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "emilcrm", version: "0.2.0" },
+      serverInfo: { name: "emilcrm", version: "0.3.0" },
     });
   }
   if (method === "ping") return rpcResult(id, {});

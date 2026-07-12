@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Zap } from "lucide-react";
+import { KeyRound } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { Button, inputClass } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -45,9 +46,7 @@ export function LicenseGate({ message }: { message?: string }) {
     <div className="flex min-h-screen flex-1 items-center justify-center bg-zinc-50 px-4">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-surface p-7 shadow-sm">
         <div className="mb-5 flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-white shadow-sm">
-            <Zap className="h-5 w-5" fill="currentColor" />
-          </div>
+          <BrandMark className="h-9 w-9" />
           <div className="leading-tight">
             <div className="text-base font-semibold tracking-tight text-zinc-900">{t("Activate EmilCRM", "Aktivera EmilCRM")}</div>
             <div className="text-xs text-zinc-400">{t("Enter your license key to unlock", "Ange din licensnyckel för att låsa upp")}</div>

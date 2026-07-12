@@ -23,10 +23,10 @@ you bring your own Apollo account for prospecting.
 | `DATABASE_URL` | Yes | Neon Postgres connection string. Set automatically when you add Neon in Vercel Storage. |
 | `APP_PASSWORD` | Recommended | The password you'll type to sign in. Auth is only enforced when this **and** `AUTH_SECRET` are set. |
 | `AUTH_SECRET` | Recommended | Random secret that signs the login cookie. Generate: `openssl rand -base64 32`. |
-| `INGEST_TOKEN` | For prospecting | Bearer token for the Cowork prospecting connector (`/api/mcp`, `/api/ingest`). Generate: `openssl rand -base64 32`. |
+| `INGEST_TOKEN` | For the AI connector | Bearer token for the MCP/AI connector (`/api/mcp`, `/api/ingest`) — prospecting plus pipeline ops (read pipeline, move stage, book meeting, call scripts). Generate: `openssl rand -base64 32`. |
 | `REQUIRE_LICENSE` | Pre-set to `1` | Turns on the license gate. Leave as `1` for a paid copy. |
 | `LICENSE_KEY` | Optional | Your license key. You can set it here, or just paste it in the in-app activation screen (it's stored in your database). |
-| `ANTHROPIC_API_KEY` | Optional | Enables AI cold-call scripts + call summaries. Get one at console.anthropic.com. |
+| `ANTHROPIC_API_KEY` | Optional | Enables AI cold-call scripts (in-app and via the `emilcrm_generate_call_script` MCP tool) + call summaries. Get one at console.anthropic.com. |
 | `ANTHROPIC_MODEL` | Optional | Override the Claude model (defaults to `claude-opus-4-8`; set `claude-sonnet-4-6` to cut cost). |
 | `CLOUDTALK_ACCESS_KEY_ID` | Optional | CloudTalk API key id — enables click-to-call. |
 | `CLOUDTALK_ACCESS_KEY_SECRET` | Optional | CloudTalk API key secret. |
@@ -43,9 +43,11 @@ no auth secrets → no login gate; no `INGEST_TOKEN` → prospecting endpoints s
 
 ## After deploying
 
-- **Connect Cowork prospecting** — see [`cowork-plugin/README.md`](cowork-plugin/README.md).
-- **Connect Apollo** in Cowork (your own account).
-- **Settings → Connect your own Claude** shows the MCP endpoint + config for any MCP client.
+- **Connect any AI client (recommended)** — the [`emilcrm-mcp`](mcp-server/README.md) server
+  bridges Claude Desktop, Claude Code, Cursor, Cowork or Windsurf to your instance. Set
+  `EMILCRM_URL` + `EMILCRM_TOKEN` (your `INGEST_TOKEN`) in the client's MCP config.
+- **Connect Apollo** in the same client (your own account) so Claude can source people.
+- **Settings → Connect your own Claude** shows copy-paste config for all of the above.
 
 ## Updating
 

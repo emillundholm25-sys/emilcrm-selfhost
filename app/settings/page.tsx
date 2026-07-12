@@ -28,7 +28,13 @@ const TOOLS: Array<{ name: string; desc: string; descSv: string }> = [
   { name: "emilcrm_get_overview", desc: "Read campaigns, their ICP + search recipe, and existing contacts.", descSv: "Läs kampanjer, deras ICP + sökrecept, och befintliga kontakter." },
   { name: "emilcrm_add_prospects", desc: "Add scored, suggested prospects to a campaign's discovery pool.", descSv: "Lägg till poängsatta, föreslagna prospekt i en kampanjs upptäcktspool." },
   { name: "emilcrm_add_contacts", desc: "Add contacts straight into the pipeline with a first-touch next action.", descSv: "Lägg kontakter direkt i pipelinen med en första nästa åtgärd." },
+  { name: "emilcrm_draft_intro", desc: "Draft personalised intro emails from a campaign template.", descSv: "Skriv personliga intromejl utifrån en kampanjmall." },
   { name: "emilcrm_set_next_action", desc: "Set or replace the next action on existing contacts.", descSv: "Sätt eller ersätt nästa åtgärd på befintliga kontakter." },
+  { name: "emilcrm_get_pipeline", desc: "Read the pipeline: contacts grouped by stage with next actions.", descSv: "Läs pipelinen: kontakter grupperade per steg med nästa åtgärder." },
+  { name: "emilcrm_move_stage", desc: "Move contacts between pipeline stages (e.g. to Scheduling or Lost).", descSv: "Flytta kontakter mellan pipeline-steg (t.ex. till Bokning eller Förlorad)." },
+  { name: "emilcrm_book_meeting", desc: "Book a meeting and advance the contact to Booked.", descSv: "Boka ett möte och flytta kontakten till Bokat." },
+  { name: "emilcrm_generate_call_script", desc: "Generate an AI cold-call script tailored to a contact.", descSv: "Generera ett AI-manus för kallsamtal anpassat till en kontakt." },
+  { name: "emilcrm_get_calls", desc: "Read logged calls with summaries, takeaways and transcripts.", descSv: "Läs loggade samtal med sammanfattningar, slutsatser och transkript." },
 ];
 
 function CopyButton({ text }: { text: string }) {
@@ -178,6 +184,21 @@ export default function SettingsPage() {
   const cliConfig = `claude mcp add --transport http emilcrm ${mcpUrl} \\
   --header "Authorization: Bearer YOUR_INGEST_TOKEN"`;
 
+  // Standalone bridge (emilcrm-mcp): works in clients that don't speak remote HTTP MCP
+  // (Claude Desktop, Cursor, Windsurf) by wrapping the endpoint above over stdio.
+  const bridgeConfig = `{
+  "mcpServers": {
+    "emilcrm": {
+      "command": "npx",
+      "args": ["-y", "emilcrm-mcp"],
+      "env": {
+        "EMILCRM_URL": "${origin}",
+        "EMILCRM_TOKEN": "YOUR_INGEST_TOKEN"
+      }
+    }
+  }
+}`;
+
   return (
     <>
       <PageHeader title={t("Settings", "Inställningar")} subtitle={t("Connections, backups, and account", "Anslutningar, backup och konto")} />
@@ -206,9 +227,19 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-3">
-              <CodeBlock label={t("MCP config (.mcp.json)", "MCP-konfig (.mcp.json)")} code={jsonConfig} />
+              <CodeBlock
+                label={t("Claude Desktop / Cursor / Windsurf (emilcrm-mcp)", "Claude Desktop / Cursor / Windsurf (emilcrm-mcp)")}
+                code={bridgeConfig}
+              />
+              <CodeBlock label={t("Remote HTTP clients — MCP config (.mcp.json)", "Fjärr-HTTP-klienter — MCP-konfig (.mcp.json)")} code={jsonConfig} />
               <CodeBlock label={t("Or, Claude Code CLI", "Eller, Claude Code CLI")} code={cliConfig} />
             </div>
+            <p className="mt-3 text-xs text-zinc-500">
+              {t(
+                "The first option runs the open-source emilcrm-mcp bridge over stdio, so it works in clients that can't connect to a remote HTTP endpoint directly. The other two connect to the endpoint above natively.",
+                "Det första alternativet kör den öppna emilcrm-mcp-bryggan över stdio, så att den fungerar i klienter som inte kan ansluta direkt till en fjärr-HTTP-endpoint. De andra två ansluter direkt till endpointen ovan."
+              )}
+            </p>
 
             <p className="mt-3 text-xs text-zinc-500">
               {t("Replace", "Ersätt")} <code className="rounded bg-zinc-100 px-1 py-0.5">YOUR_INGEST_TOKEN</code> {t("with this deployment's", "med den här installationens")}{" "}
