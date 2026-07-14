@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  Building2,
   CalendarDays,
   Columns3,
   ListChecks,
@@ -261,6 +262,7 @@ function Sidebar({ className }: { className?: string }) {
         <NavItem href="/meetings" label={t("Meetings", "Möten")} icon={CalendarDays} count={upcoming} active={pathname.startsWith("/meetings")} />
         <NavItem href="/pipeline" label={t("Pipeline", "Pipeline")} icon={Columns3} active={pathname.startsWith("/pipeline")} />
         <NavItem href="/prospects" label={t("Prospects", "Prospekt")} icon={Target} count={suggestedCount} active={pathname.startsWith("/prospects")} />
+        <NavItem href="/lookup" label={t("Company lookup", "Företagssök")} icon={Building2} active={pathname.startsWith("/lookup")} />
         <NavItem href="/campaigns" label={t("Campaigns", "Kampanjer")} icon={Megaphone} count={activeCampaigns.length} active={pathname.startsWith("/campaigns")} />
       </nav>
 
