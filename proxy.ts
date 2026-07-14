@@ -17,7 +17,8 @@ export async function proxy(req: NextRequest) {
   if (
     pathname.startsWith("/api/ingest") ||
     pathname.startsWith("/api/mcp") ||
-    pathname.startsWith("/api/cloudtalk")
+    pathname.startsWith("/api/cloudtalk") ||
+    pathname.startsWith("/api/company-lookup")
   ) {
     return NextResponse.next();
   }

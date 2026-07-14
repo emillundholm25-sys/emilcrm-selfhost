@@ -11,6 +11,8 @@ import {
   setCallScript,
 } from "@/lib/pipeline";
 import { generateCallScript, llmEnabled } from "@/lib/llm";
+import { CompanyFit, bolagsverketEnabled, getCompany, scoreCompanyFit } from "@/lib/bolagsverket";
+import { computeICP } from "@/lib/icp";
 import { CallScript, Contact } from "@/lib/types";
 
 // Remote MCP endpoint for the Cowork "emilcrm-prospecting" plugin.
@@ -239,6 +241,23 @@ const TOOLS = [
       additionalProperties: false,
     },
   },
+  {
+    name: "emilcrm_enrich_company",
+    description:
+      "Enrich a Swedish company by its organisationsnummer using the official Bolagsverket register (free open data). Returns firmographics — registered name, SNI industry code(s), city, legal form, business description, active status — and, when a campaign is given, an ICP-fit score (0–100) with reasons. Use this to qualify a Swedish company before adding it to the pipeline, or to fill in industry/location on a prospect Apollo missed (Apollo is weak on Nordic SMBs). Requires BOLAGSVERKET_CLIENT_ID/SECRET on the server; returns a clear error telling the user to configure it if absent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        orgnr: { type: "string", description: "Swedish organisationsnummer, 10 digits (hyphen optional), e.g. 556074-7551." },
+        campaignId: {
+          type: "string",
+          description: "Optional campaign whose ICP the company is scored against (id from emilcrm_get_overview). Omit to return firmographics only.",
+        },
+      },
+      required: ["orgnr"],
+      additionalProperties: false,
+    },
+  },
 ];
 
 async function callTool(name: string, args: Record<string, unknown>) {
@@ -322,6 +341,34 @@ async function callTool(name: string, args: Record<string, unknown>) {
     return { ok: true, ...readCalls(doc, { contactId: args.contactId as string | undefined, campaignId: args.campaignId as string | undefined }) };
   }
 
+  if (name === "emilcrm_enrich_company") {
+    if (!bolagsverketEnabled()) {
+      throw new Error(
+        "Bolagsverket enrichment is not configured on this instance. Set BOLAGSVERKET_CLIENT_ID and BOLAGSVERKET_CLIENT_SECRET on the app and redeploy (free API — register at bolagsverket.se/apierochoppnadata).",
+      );
+    }
+    const company = await getCompany(args.orgnr as string);
+    if (!company) return { ok: true, found: false, message: `No company found for org-nr ${args.orgnr}.` };
+
+    let fit: CompanyFit | undefined;
+    const campaignId = args.campaignId as string | undefined;
+    if (campaignId) {
+      const campaign = doc.state.campaigns.find((cm) => cm.id === campaignId);
+      if (campaign) {
+        const icp =
+          campaign.targetICP ??
+          (() => {
+            // No defined ICP — derive industries/locations from the campaign's own contacts.
+            const contacts = doc.state.contacts.filter((c: Contact) => c.campaignId === campaign.id);
+            const p = computeICP(contacts);
+            return { industries: p.industries.map((f) => f.value), locations: p.locations.map((f) => f.value) };
+          })();
+        fit = scoreCompanyFit(company, icp);
+      }
+    }
+    return { ok: true, found: true, company, fit };
+  }
+
   throw new Error(`Unknown tool: ${name}`);
 }
 
@@ -356,7 +403,7 @@ export async function POST(req: Request) {
     return rpcResult(id, {
       protocolVersion: params?.protocolVersion || "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "emilcrm", version: "0.3.0" },
+      serverInfo: { name: "emilcrm", version: "0.4.0" },
     });
   }
   if (method === "ping") return rpcResult(id, {});

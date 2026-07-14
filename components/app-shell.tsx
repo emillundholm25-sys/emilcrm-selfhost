@@ -9,6 +9,7 @@ import {
   ListChecks,
   LogOut,
   Megaphone,
+  Menu,
   Plus,
   Settings,
   Sparkles,
@@ -144,7 +145,7 @@ function LangToggle() {
   );
 }
 
-function Sidebar() {
+function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const contacts = useCRM((s) => s.contacts);
   const meetings = useCRM((s) => s.meetings);
@@ -200,7 +201,7 @@ function Sidebar() {
   }, []);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-zinc-200 bg-surface">
+    <aside className={cn("shrink-0 flex-col overflow-y-auto border-r border-zinc-200 bg-surface", className)}>
       <div className="flex items-center gap-2.5 px-5 py-5">
         <BrandMark className="h-8 w-8" />
         <div className="leading-tight">
@@ -297,6 +298,25 @@ function Sidebar() {
   );
 }
 
+/** Slim top bar shown only below the lg breakpoint, with the drawer trigger. */
+function MobileTopBar() {
+  const setMobileNav = useUI((s) => s.setMobileNav);
+  const t = useT();
+  return (
+    <div className="flex items-center gap-2.5 border-b border-zinc-200 bg-surface/90 px-3 py-2.5 backdrop-blur lg:hidden">
+      <button
+        onClick={() => setMobileNav(true)}
+        aria-label={t("Open menu", "Öppna meny")}
+        className="-ml-0.5 rounded-lg p-2 text-zinc-600 transition-colors hover:bg-zinc-100 active:bg-zinc-200"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      <BrandMark className="h-6 w-6" />
+      <span className="text-[15px] font-semibold tracking-tight text-zinc-900">EmilCRM</span>
+    </div>
+  );
+}
+
 function HydrationGate({ children }: { children: React.ReactNode }) {
   const hasHydrated = useCRM((s) => s.hasHydrated);
   const t = useT();
@@ -369,19 +389,41 @@ function LicenseBoundary({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const mobileNavOpen = useUI((s) => s.mobileNavOpen);
+  const setMobileNav = useUI((s) => s.setMobileNav);
+  const t = useT();
   // Resolve the saved/browser locale + theme on the client, after mount.
   useEffect(() => {
     initLocale();
     initTheme();
   }, []);
+  // Close the mobile drawer on every route change (covers all nav + Settings links).
+  useEffect(() => {
+    setMobileNav(false);
+  }, [pathname, setMobileNav]);
   // The login screen renders standalone, without the CRM chrome or data gate.
   if (pathname === "/login") return <>{children}</>;
 
   return (
     <LicenseBoundary>
       <div className="flex h-screen overflow-hidden">
-        <Sidebar />
+        {/* Persistent sidebar — desktop only */}
+        <Sidebar className="hidden w-60 lg:flex" />
+
+        {/* Slide-in drawer — below lg */}
+        {mobileNavOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
+            <button
+              aria-label={t("Close menu", "Stäng meny")}
+              onClick={() => setMobileNav(false)}
+              className="absolute inset-0 animate-fade-in bg-zinc-950/40"
+            />
+            <Sidebar className="animate-drawer-in absolute inset-y-0 left-0 flex w-[86%] max-w-xs shadow-2xl" />
+          </div>
+        )}
+
         <main className="flex flex-1 flex-col overflow-hidden">
+          <MobileTopBar />
           <HydrationGate>{children}</HydrationGate>
         </main>
         <ModalHost />

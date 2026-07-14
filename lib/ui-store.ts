@@ -25,6 +25,9 @@ interface UIState {
   modal: Modal;
   toasts: Toast[];
   activeCampaignId: ActiveCampaign;
+  /** Mobile nav drawer (below the lg breakpoint). Desktop ignores it. */
+  mobileNavOpen: boolean;
+  setMobileNav: (open: boolean) => void;
   setActiveCampaign: (id: ActiveCampaign) => void;
   openModal: (modal: Modal) => void;
   closeModal: () => void;
@@ -36,6 +39,8 @@ export const useUI = create<UIState>((set) => ({
   modal: { kind: "none" },
   toasts: [],
   activeCampaignId: "all",
+  mobileNavOpen: false,
+  setMobileNav: (open) => set({ mobileNavOpen: open }),
   setActiveCampaign: (id) => {
     // Persist per-device so a refresh keeps the selection (validated on restore).
     try {
@@ -43,7 +48,9 @@ export const useUI = create<UIState>((set) => ({
     } catch {}
     set({ activeCampaignId: id });
   },
-  openModal: (modal) => set({ modal }),
+  // Opening a modal also dismisses the mobile drawer (e.g. tapping "Add contact"
+  // in the drawer should reveal the modal, not leave the drawer covering it).
+  openModal: (modal) => set({ modal, mobileNavOpen: false }),
   closeModal: () => set({ modal: { kind: "none" } }),
   toast: (message) => {
     const id = uid();
