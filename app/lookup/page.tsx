@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Building2, Loader2, Search } from "lucide-react";
+import { Building2, ExternalLink, Loader2, Search } from "lucide-react";
 import { useCRM } from "@/lib/store";
 import { useUI } from "@/lib/ui-store";
 import { useT } from "@/lib/i18n";
@@ -226,6 +226,16 @@ export default function LookupPage() {
                   {t("No clear match to this campaign's ICP.", "Ingen tydlig matchning mot kampanjens ICP.")}
                 </p>
               )}
+
+              <a
+                href={`https://www.allabolag.se/what/${company.orgnr}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 flex items-center gap-1.5 border-t border-zinc-100 pt-3 text-sm font-medium text-brand-600 hover:text-brand-700"
+              >
+                {t("View full record on allabolag.se", "Visa hela posten på allabolag.se")}
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
             </section>
           )}
         </div>
