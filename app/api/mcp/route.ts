@@ -11,7 +11,7 @@ import {
   setCallScript,
 } from "@/lib/pipeline";
 import { generateCallScript, llmEnabled } from "@/lib/llm";
-import { CompanyFit, bolagsverketEnabled, getCompany, scoreCompanyFit } from "@/lib/bolagsverket";
+import { CompanyFit, bolagsverketEnabled, getCompany, getFinancials, scoreCompanyFit } from "@/lib/bolagsverket";
 import { computeICP } from "@/lib/icp";
 import { CallScript, Contact } from "@/lib/types";
 
@@ -244,7 +244,7 @@ const TOOLS = [
   {
     name: "emilcrm_enrich_company",
     description:
-      "Enrich a Swedish company by its organisationsnummer using the official Bolagsverket register (free open data). Returns firmographics — registered name, SNI industry code(s), city, legal form, business description, active status — and, when a campaign is given, an ICP-fit score (0–100) with reasons. Use this to qualify a Swedish company before adding it to the pipeline, or to fill in industry/location on a prospect Apollo missed (Apollo is weak on Nordic SMBs). Requires BOLAGSVERKET_CLIENT_ID/SECRET on the server; returns a clear error telling the user to configure it if absent.",
+      "Enrich a Swedish company by its organisationsnummer using the official Bolagsverket register (free open data). Returns firmographics — registered name, SNI industry code(s), city, legal form, business description, active status — plus financials from the latest digitally-filed annual report when available (revenue, net result, employees; absent for large/listed companies that don't file digitally), and, when a campaign is given, an ICP-fit score (0–100) with reasons. Use this to qualify a Swedish company before adding it to the pipeline, or to fill in industry/location/size on a prospect Apollo missed (Apollo is weak on Nordic SMBs). Requires BOLAGSVERKET_CLIENT_ID/SECRET on the server; returns a clear error telling the user to configure it if absent.",
     inputSchema: {
       type: "object",
       properties: {
@@ -347,7 +347,10 @@ async function callTool(name: string, args: Record<string, unknown>) {
         "Bolagsverket enrichment is not configured on this instance. Set BOLAGSVERKET_CLIENT_ID and BOLAGSVERKET_CLIENT_SECRET on the app and redeploy (free API — register at bolagsverket.se/apierochoppnadata).",
       );
     }
-    const company = await getCompany(args.orgnr as string);
+    const [company, financials] = await Promise.all([
+      getCompany(args.orgnr as string),
+      getFinancials(args.orgnr as string).catch(() => null),
+    ]);
     if (!company) return { ok: true, found: false, message: `No company found for org-nr ${args.orgnr}.` };
 
     let fit: CompanyFit | undefined;
@@ -366,7 +369,7 @@ async function callTool(name: string, args: Record<string, unknown>) {
         fit = scoreCompanyFit(company, icp);
       }
     }
-    return { ok: true, found: true, company, fit };
+    return { ok: true, found: true, company, fit, financials: financials ?? undefined };
   }
 
   throw new Error(`Unknown tool: ${name}`);

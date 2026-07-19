@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { bolagsverketEnabled, getCompany, normalizeOrgnr, scoreCompanyFit } from "@/lib/bolagsverket";
+import { bolagsverketEnabled, getCompany, getFinancials, normalizeOrgnr, scoreCompanyFit } from "@/lib/bolagsverket";
 
 // Public, read-only company lookup — the backend for the landing-page
 // "Företagskoll / ICP-fit" lead magnet. Calls straight into lib/bolagsverket
@@ -62,12 +62,18 @@ export async function GET(req: Request) {
 
   const industries = splitList(url.searchParams.get("industries"));
   const locations = splitList(url.searchParams.get("locations"));
+  const wantFinancials = /^(1|true|yes)$/i.test(url.searchParams.get("financials") || "");
 
   try {
-    const company = await getCompany(orgnr);
+    // Financials are an extra fetch (doc download + parse) — run it in parallel
+    // and only when asked, so the base lookup and the landing tool stay fast.
+    const [company, financials] = await Promise.all([
+      getCompany(orgnr),
+      wantFinancials ? getFinancials(orgnr).catch(() => null) : Promise.resolve(null),
+    ]);
     if (!company) return json({ ok: true, found: false });
     const fit = industries.length || locations.length ? scoreCompanyFit(company, { industries, locations }) : undefined;
-    return json({ ok: true, found: true, company, fit });
+    return json({ ok: true, found: true, company, fit, financials: financials ?? undefined });
   } catch (e) {
     return json({ ok: false, error: e instanceof Error ? e.message : "Uppslaget misslyckades." }, 502);
   }

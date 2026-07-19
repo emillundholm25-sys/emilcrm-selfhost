@@ -27,11 +27,26 @@ interface Fit {
   score: number;
   reasons: string[];
 }
+interface Financials {
+  year?: string;
+  revenue?: number;
+  result?: number;
+  employees?: number;
+}
 
 function scoreStyle(n: number): string {
   if (n >= 70) return "bg-brand-50 text-brand-700 border-brand-200";
   if (n >= 45) return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-zinc-50 text-zinc-500 border-zinc-200";
+}
+
+/** Compact SEK: Mkr / tkr / kr (Swedish grouping). */
+function sek(n?: number): string | undefined {
+  if (n == null) return undefined;
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return `${(n / 1_000_000).toLocaleString("sv-SE", { maximumFractionDigits: 1 })} Mkr`;
+  if (abs >= 1_000) return `${Math.round(n / 1000).toLocaleString("sv-SE")} tkr`;
+  return `${n.toLocaleString("sv-SE")} kr`;
 }
 
 function Row({ label, value }: { label: string; value?: string }) {
@@ -59,6 +74,7 @@ export default function LookupPage() {
   const [error, setError] = useState<string | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [fit, setFit] = useState<Fit | null>(null);
+  const [financials, setFinancials] = useState<Financials | null>(null);
   const [notFound, setNotFound] = useState(false);
 
   // The industries/locations we score against, derived from the chosen campaign
@@ -79,9 +95,10 @@ export default function LookupPage() {
     setError(null);
     setCompany(null);
     setFit(null);
+    setFinancials(null);
     setNotFound(false);
     try {
-      const params = new URLSearchParams({ orgnr: q });
+      const params = new URLSearchParams({ orgnr: q, financials: "1" });
       if (icpParams.industries.length) params.set("industries", icpParams.industries.join(","));
       if (icpParams.locations.length) params.set("locations", icpParams.locations.join(","));
       const res = await fetch(`/api/company-lookup?${params.toString()}`, { headers: { Accept: "application/json" } });
@@ -96,6 +113,7 @@ export default function LookupPage() {
       }
       setCompany(data.company as Company);
       setFit((data.fit as Fit) ?? null);
+      setFinancials((data.financials as Financials) ?? null);
     } catch {
       setError(t("Couldn't reach the service. Try again.", "Kunde inte nå tjänsten. Försök igen."));
     } finally {
@@ -204,6 +222,19 @@ export default function LookupPage() {
                 <Row label={t("Status", "Status")} value={statusText} />
                 <Row label={t("Registered", "Registrerad")} value={company.registeredAt} />
               </div>
+
+              {financials && (financials.revenue != null || financials.employees != null || financials.result != null) && (
+                <div className="mt-3 border-t border-zinc-100 pt-3">
+                  <div className="mb-1.5 text-xs font-medium text-zinc-400">
+                    {t("Financials", "Ekonomi")}
+                    {financials.year ? ` · ${financials.year.slice(0, 4)}` : ""}
+                    <span className="ml-1 font-normal text-zinc-300">{t("(from annual report)", "(från årsredovisning)")}</span>
+                  </div>
+                  <Row label={t("Revenue", "Omsättning")} value={sek(financials.revenue)} />
+                  <Row label={t("Employees", "Anställda")} value={financials.employees != null ? String(financials.employees) : undefined} />
+                  <Row label={t("Net result", "Årets resultat")} value={sek(financials.result)} />
+                </div>
+              )}
 
               {company.description && (
                 <p className="mt-3 border-t border-zinc-100 pt-3 text-sm leading-relaxed text-zinc-600">
